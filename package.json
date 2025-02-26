@@ -1,0 +1,77 @@
+{
+  "name": "fraop-mvi-dev-tools",
+  "version": "0.1.0",
+  "description": "Development tools for Functional Reactive Aspect-Oriented Programming with MVI architecture",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "rollup -c -w",
+    "build": "rollup -c",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm test && npm run lint",
+    "preversion": "npm run lint",
+    "version": "npm run format && git add -A src",
+    "postversion": "git push && git push --tags"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/subtillioN/FRAOP-MVI-Dev-Tools.git"
+  },
+  "keywords": [
+    "react",
+    "development",
+    "tools",
+    "devtools",
+    "debugging",
+    "performance",
+    "optimization",
+    "mvi",
+    "fraop"
+  ],
+  "author": "subtillioN",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/subtillioN/FRAOP-MVI-Dev-Tools/issues"
+  },
+  "homepage": "https://github.com/subtillioN/FRAOP-MVI-Dev-Tools#readme",
+  "peerDependencies": {
+    "react": ">=16.8.0",
+    "react-dom": ">=16.8.0"
+  },
+  "dependencies": {
+    "recharts": "^2.0.0"
+  },
+  "devDependencies": {
+    "@rollup/plugin-commonjs": "^21.0.0",
+    "@rollup/plugin-node-resolve": "^13.0.0",
+    "@rollup/plugin-typescript": "^8.0.0",
+    "@testing-library/jest-dom": "^5.0.0",
+    "@testing-library/react": "^13.0.0",
+    "@types/jest": "^27.0.0",
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@typescript-eslint/eslint-plugin": "^5.0.0",
+    "@typescript-eslint/parser": "^5.0.0",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^8.0.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "eslint-plugin-react": "^7.0.0",
+    "eslint-plugin-react-hooks": "^4.0.0",
+    "jest": "^27.0.0",
+    "prettier": "^2.0.0",
+    "rollup": "^2.0.0",
+    "rollup-plugin-terser": "^7.0.0",
+    "ts-jest": "^27.0.0",
+    "typescript": "^4.5.0"
+  }
+} 
