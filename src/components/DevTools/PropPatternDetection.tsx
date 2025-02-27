@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import {
   ResponsiveContainer,
-  TreeMap,
+  Treemap,
   Tooltip,
 } from 'recharts';
 import styles from '../../styles/base.module.css';
@@ -111,14 +111,14 @@ const PropPatternDetection: React.FC<PropPatternDetectionProps> = ({ data }) => 
 
       <div className={styles['pattern-visualization']}>
         <ResponsiveContainer width="100%" height={300}>
-          <TreeMap
+          <Treemap
             data={patterns}
             dataKey="value"
             nameKey="name"
             onClick={(data) => setSelectedPattern(data as Pattern)}
           >
             <Tooltip content={<CustomTooltip />} />
-          </TreeMap>
+          </Treemap>
         </ResponsiveContainer>
       </div>
 

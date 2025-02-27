@@ -2,7 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import styles from '../../styles/base.module.css';
 import { PropAnalysisResult } from '../../core/PropAnalyzer';
-import { MonitoringService, MonitoringEvent } from '../../services/MonitoringService';
+import { MonitoringService } from '../../services/MonitoringService';
+
+interface MonitoringEvent {
+  type: 'prop-update' | 'render' | 'error' | 'update' | 'warning';
+  componentName: string;
+  timestamp: number;
+  data?: {
+    propName?: string;
+    propValue?: any;
+    renderDuration?: number;
+    error?: Error;
+    message?: string;
+  };
+}
 
 interface RealTimeMonitoringProps {
   data: PropAnalysisResult;
@@ -26,12 +39,16 @@ declare global {
   }
 }
 
-const RealTimeMonitoring: React.FC<RealTimeMonitoringProps> = ({ data }) => {
+interface Props {
+  monitoringService: MonitoringService;
+}
+
+const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
   const [metricsHistory, setMetricsHistory] = useState<MetricsData[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);
+  const [events, setEvents] = useState<MonitoringEvent[]>([]);
 
   useEffect(() => {
-    const monitoringService = MonitoringService.getInstance();
     const unsubscribe = monitoringService.subscribe((event: MonitoringEvent) => {
       if (event.type === 'update') {
         const analysis = event.data as PropAnalysisResult;
@@ -51,13 +68,57 @@ const RealTimeMonitoring: React.FC<RealTimeMonitoringProps> = ({ data }) => {
           // Keep last 60 data points (1 minute at 1s interval)
           return newHistory.slice(-60);
         });
-      } else if (event.type === 'warning') {
-        setAlerts(prev => [...prev, event.data.message]);
+      } else if (event.type === 'warning' && event.data?.message) {
+        const message = event.data.message;
+        if (message) {
+          setAlerts(prev => [...prev, message]);
+        }
       }
+      setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribe();
+    };
+  }, [monitoringService]);
+
+  const renderEventDetails = (event: MonitoringEvent) => {
+    switch (event.type) {
+      case 'prop-update':
+        return (
+          <div>
+            <strong>Prop Update:</strong> {event.componentName}.{event.data?.propName} ={' '}
+            {JSON.stringify(event.data?.propValue)}
+          </div>
+        );
+      case 'render':
+        return (
+          <div>
+            <strong>Render:</strong> {event.componentName} ({event.data?.renderDuration}ms)
+          </div>
+        );
+      case 'error':
+        return (
+          <div>
+            <strong>Error:</strong> {event.componentName} - {event.data?.error?.message}
+          </div>
+        );
+      case 'update':
+        return (
+          <div>
+            <strong>Update:</strong> {event.componentName} - {event.data?.message}
+          </div>
+        );
+      case 'warning':
+        return (
+          <div>
+            <strong>Warning:</strong> {event.componentName} - {event.data?.message}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
     <div className={styles.container}>
@@ -139,6 +200,20 @@ const RealTimeMonitoring: React.FC<RealTimeMonitoringProps> = ({ data }) => {
           </ul>
         </div>
       )}
+
+      <div className={styles.section}>
+        <h3>Real-Time Events</h3>
+        <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          {events.map((event, index) => (
+            <div key={index} style={{ marginBottom: '8px' }}>
+              <div>
+                <small>{new Date(event.timestamp).toLocaleTimeString()}</small>
+              </div>
+              {renderEventDetails(event)}
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

@@ -7,6 +7,8 @@ import {
   YAxis,
   Tooltip,
   CartesianGrid,
+  Legend,
+  Cell
 } from 'recharts';
 import styles from '../../styles/base.module.css';
 import { PropAnalysisResult } from '../../utils/propAnalysis';
@@ -24,7 +26,65 @@ interface MemoizationSuggestion {
   affectedProps: string[];
 }
 
-const MemoizationSuggestions: React.FC<MemoizationSuggestionsProps> = ({ data }) => {
+interface ChartData {
+  name: string;
+  value: number;
+}
+
+interface Props {
+  data: PropAnalysisResult;
+}
+
+interface MemoizationImpact {
+  componentName: string;
+  renderCount: number;
+  impact: 'high' | 'medium' | 'low';
+}
+
+interface CustomBarProps {
+  fill: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  impact: 'high' | 'medium' | 'low';
+}
+
+const MemoizationSuggestions: React.FC<Props> = ({ data }) => {
+  const impactData = React.useMemo(() => {
+    return data.components.map(component => {
+      const renderCount = component.renderCount;
+      let impact: 'high' | 'medium' | 'low' = 'low';
+
+      if (renderCount > 100) {
+        impact = 'high';
+      } else if (renderCount > 50) {
+        impact = 'medium';
+      }
+
+      return {
+        componentName: component.componentName,
+        renderCount,
+        impact
+      };
+    });
+  }, [data]);
+
+  const CustomBar: React.FC<CustomBarProps> = React.memo(({ x, y, width, height, impact }) => {
+    const fill = React.useMemo(() => {
+      switch (impact) {
+        case 'high':
+          return '#ef5350';
+        case 'medium':
+          return '#ff9800';
+        case 'low':
+          return '#4caf50';
+      }
+    }, [impact]);
+
+    return <rect x={x} y={y} width={width} height={height} fill={fill} />;
+  });
+
   const suggestions = useMemo(() => {
     const result: MemoizationSuggestion[] = [];
 
@@ -68,10 +128,9 @@ const MemoizationSuggestions: React.FC<MemoizationSuggestionsProps> = ({ data })
     return result.sort((a, b) => b.score - a.score);
   }, [data]);
 
-  const chartData = suggestions.map(s => ({
+  const chartData: ChartData[] = suggestions.map(s => ({
     name: s.componentName,
-    score: s.score,
-    impact: s.impact,
+    value: s.score,
   }));
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -90,6 +149,17 @@ const MemoizationSuggestions: React.FC<MemoizationSuggestionsProps> = ({ data })
     );
   };
 
+  const getBarFill = (impact: 'high' | 'medium' | 'low'): string => {
+    switch (impact) {
+      case 'high':
+        return '#ef5350';
+      case 'medium':
+        return '#ff9800';
+      case 'low':
+        return '#4caf50';
+    }
+  };
+
   return (
     <div className={styles['memoization-container']} data-testid="memoization-suggestions">
       <div className={styles['memoization-header']}>
@@ -101,29 +171,30 @@ const MemoizationSuggestions: React.FC<MemoizationSuggestionsProps> = ({ data })
         <>
           <div className={styles['chart-container']}>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={chartData}>
+              <BarChart data={impactData}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis
-                  dataKey="name"
+                  dataKey="componentName"
                   angle={-45}
                   textAnchor="end"
                   height={70}
                   interval={0}
                 />
                 <YAxis
-                  label={{ value: 'Impact Score', angle: -90, position: 'insideLeft' }}
+                  label={{ value: 'Render Count', angle: -90, position: 'insideLeft' }}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip />
+                <Legend />
                 <Bar
-                  dataKey="score"
-                  fill={(entry) => {
-                    switch (entry.impact) {
-                      case 'high': return '#ef5350';
-                      case 'medium': return '#ff9800';
-                      default: return '#4caf50';
-                    }
-                  }}
-                />
+                  dataKey="renderCount"
+                  name="Render Count"
+                  shape={<CustomBar />}
+                  fill={(entry: MemoizationImpact) => entry.fill || '#4caf50'}
+                >
+                  {impactData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getBarFill(entry.impact)} />
+                  ))}
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </div>

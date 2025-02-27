@@ -26,6 +26,24 @@ interface Recommendation {
   potentialImprovement: string;
 }
 
+interface ChartData {
+  name: string;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+const getBarColor = (priority: 'high' | 'medium' | 'low'): string => {
+  switch (priority) {
+    case 'high':
+      return '#ef5350';
+    case 'medium':
+      return '#ff9800';
+    case 'low':
+      return '#4caf50';
+  }
+};
+
 const OptimizationRecommendations: React.FC<OptimizationRecommendationsProps> = ({ data }) => {
   const recommendations = useMemo(() => {
     const result: Recommendation[] = [];
@@ -159,13 +177,21 @@ const ${component.componentName}Reducer = (state: ${component.componentName}Stat
     });
   }, [data]);
 
-  const chartData = useMemo(() => {
-    return recommendations.map(rec => ({
-      name: rec.componentName,
-      impact: rec.impact,
-      priority: rec.priority,
-    }));
-  }, [recommendations]);
+  const chartData: ChartData[] = useMemo(() => {
+    return data.components.map(component => {
+      const totalUpdates = component.props.reduce(
+        (sum, prop) => sum + (prop.valueChanges || 0),
+        0
+      );
+
+      return {
+        name: component.componentName,
+        high: totalUpdates > 1000 ? totalUpdates : 0,
+        medium: totalUpdates > 500 && totalUpdates <= 1000 ? totalUpdates : 0,
+        low: totalUpdates <= 500 ? totalUpdates : 0
+      };
+    });
+  }, [data]);
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || !payload[0]) return null;
@@ -206,16 +232,9 @@ const ${component.componentName}Reducer = (state: ${component.componentName}Stat
               label={{ value: 'Impact Score', angle: -90, position: 'insideLeft' }}
             />
             <Tooltip content={<CustomTooltip />} />
-            <Bar
-              dataKey="impact"
-              fill={(entry: { priority: 'high' | 'medium' | 'low' }) => {
-                switch (entry.priority) {
-                  case 'high': return '#ef5350';
-                  case 'medium': return '#ff9800';
-                  default: return '#4caf50';
-                }
-              }}
-            />
+            <Bar dataKey="high" fill="#ef5350" stackId="stack" />
+            <Bar dataKey="medium" fill="#ff9800" stackId="stack" />
+            <Bar dataKey="low" fill="#4caf50" stackId="stack" />
           </BarChart>
         </ResponsiveContainer>
       </div>

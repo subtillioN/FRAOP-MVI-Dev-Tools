@@ -1,63 +1,144 @@
-import { ComponentUsage, PropUsage } from '../types';
+import { Component, ComponentType } from 'react';
+import { Validator } from 'prop-types';
+
+export interface PropUsage {
+  name: string;
+  type: string;
+  required: boolean;
+  usageCount: number;
+  valueChanges: number;
+  lastValue: any;
+}
+
+export interface ComponentUsage {
+  componentName: string;
+  renderCount: number;
+  props: PropUsage[];
+}
+
+export interface Pattern {
+  id: string;
+  type: 'dependent' | 'independent' | 'correlated';
+  description: string;
+  components: string[];
+  props: string[];
+  confidence: number;
+}
 
 export interface PropAnalysisResult {
   components: ComponentUsage[];
-  frequentUpdates: Array<{
-    componentName: string;
-    propName: string;
-    updateCount: number;
-  }>;
-  unusedProps: Array<{
-    componentName: string;
-    propName: string;
-  }>;
-  propPatterns: Array<{
-    type: 'frequent-updates' | 'unused' | 'dependent';
-    components: string[];
-    props: string[];
-    description: string;
-  }>;
+  propPatterns: Pattern[];
+  unusedProps: PropUsage[];
+  timestamp: number;
 }
 
-export function analyzePropUsage(components: ComponentUsage[]): PropAnalysisResult {
-  const frequentUpdates = components.flatMap(component =>
-    component.props
-      .filter((prop: PropUsage) => (prop.valueChanges || 0) / (prop.usageCount || 1) > 0.7)
-      .map((prop: PropUsage) => ({
-        componentName: component.componentName,
-        propName: prop.name,
-        updateCount: prop.valueChanges || 0
-      }))
-  );
+interface PropTypeMap {
+  [key: string]: Validator<any>;
+}
 
-  const unusedProps = components.flatMap(component =>
-    component.props
-      .filter((prop: PropUsage) => !prop.usageCount)
-      .map((prop: PropUsage) => ({
-        componentName: component.componentName,
-        propName: prop.name
-      }))
-  );
+type ComponentWithPropTypes = ComponentType<any> & {
+  propTypes?: PropTypeMap;
+};
 
-  const propPatterns = [
-    {
-      type: 'frequent-updates' as const,
-      components: Array.from(new Set(frequentUpdates.map(u => u.componentName))),
-      props: frequentUpdates.map(u => `${u.componentName}.${u.propName}`),
-      description: 'Props with high update frequency'
-    },
-    {
-      type: 'unused' as const,
-      components: Array.from(new Set(unusedProps.map(p => p.componentName))),
-      props: unusedProps.map(p => `${p.componentName}.${p.propName}`),
-      description: 'Props that are never used'
+export class PropAnalyzer {
+  private componentUsage: Map<string, ComponentUsage>;
+  private renderCounts: Map<string, number>;
+
+  constructor() {
+    this.componentUsage = new Map();
+    this.renderCounts = new Map();
+  }
+
+  trackPropUsage(component: ComponentWithPropTypes, props: any, componentName: string): void {
+    let usage = this.componentUsage.get(componentName);
+    if (!usage) {
+      usage = {
+        componentName,
+        renderCount: 0,
+        props: []
+      };
+      this.componentUsage.set(componentName, usage);
     }
-  ];
 
-  return {
-    components,
-    frequentUpdates,
-    unusedProps,
-    propPatterns
-  };
+    // Update render count
+    usage.renderCount = (usage.renderCount || 0) + 1;
+    this.renderCounts.set(componentName, usage.renderCount);
+
+    // Track props
+    Object.entries(props).forEach(([name, value]) => {
+      let propUsage = usage!.props.find(p => p.name === name);
+      if (!propUsage) {
+        propUsage = {
+          name,
+          type: typeof value,
+          required: component.propTypes?.[name] !== undefined,
+          usageCount: 0,
+          valueChanges: 0,
+          lastValue: value
+        };
+        usage!.props.push(propUsage);
+      }
+
+      propUsage.usageCount++;
+      if (propUsage.lastValue !== value) {
+        propUsage.valueChanges++;
+        propUsage.lastValue = value;
+      }
+    });
+  }
+
+  getComponentPropUsage(componentName: string): ComponentUsage | undefined {
+    return this.componentUsage.get(componentName);
+  }
+
+  getRenderCount(componentName: string): number {
+    return this.renderCounts.get(componentName) || 0;
+  }
+
+  analyzeProps(): PropAnalysisResult {
+    const components = Array.from(this.componentUsage.values());
+    const propPatterns: Pattern[] = [];
+    const unusedProps: PropUsage[] = [];
+
+    // Find unused props
+    components.forEach(component => {
+      component.props.forEach(prop => {
+        if (prop.usageCount === 0) {
+          unusedProps.push(prop);
+        }
+      });
+    });
+
+    // Find prop patterns
+    components.forEach((component, i) => {
+      components.slice(i + 1).forEach(otherComponent => {
+        const sharedProps = component.props.filter(prop =>
+          otherComponent.props.some(p => p.name === prop.name)
+        );
+
+        if (sharedProps.length > 0) {
+          propPatterns.push({
+            id: `${component.componentName}-${otherComponent.componentName}`,
+            type: 'dependent',
+            description: `Components share props: ${sharedProps.map(p => p.name).join(', ')}`,
+            components: [component.componentName, otherComponent.componentName],
+            props: sharedProps.map(p => p.name),
+            confidence: sharedProps.length / Math.max(component.props.length, otherComponent.props.length)
+          });
+        }
+      });
+    });
+
+    return {
+      components,
+      propPatterns,
+      unusedProps,
+      timestamp: Date.now()
+    };
+  }
+
+  reset(): void {
+    this.componentUsage.clear();
+    this.renderCounts.clear();
+  }
 } 

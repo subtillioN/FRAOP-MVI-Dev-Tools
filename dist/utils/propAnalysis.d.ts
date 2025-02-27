@@ -1,4 +1,4 @@
-import { ComponentUsage } from '../types';
+import { ComponentUsage, PropUsage } from '../types';
 export interface PropAnalysisResult {
     components: ComponentUsage[];
     frequentUpdates: Array<{
@@ -17,4 +17,10 @@ export interface PropAnalysisResult {
         description: string;
     }>;
 }
-export declare function analyzePropUsage(components: ComponentUsage[]): PropAnalysisResult;
+export declare class PropAnalyzer {
+    private components;
+    trackComponent(componentName: string): void;
+    trackProp(componentName: string, propName: string, value: any, type: PropUsage['type']): void;
+    trackRender(componentName: string, duration: number): void;
+    analyze(): PropAnalysisResult;
+}

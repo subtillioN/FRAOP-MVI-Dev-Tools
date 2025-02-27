@@ -7,7 +7,20 @@ interface MonitoringOptions {
   errorThreshold?: number;
 }
 
+export interface MonitoringEvent {
+  type: 'prop-update' | 'render' | 'error';
+  componentName: string;
+  timestamp: number;
+  data?: {
+    propName?: string;
+    propValue?: any;
+    renderDuration?: number;
+    error?: Error;
+  };
+}
+
 export class MonitoringService extends EventEmitter {
+  private static instance: MonitoringService;
   private isMonitoring: boolean = false;
   private sampleInterval: number;
   private warningThreshold: number;
@@ -18,12 +31,21 @@ export class MonitoringService extends EventEmitter {
     totalRequests: 0,
     timestamps: []
   };
+  private eventHistory: MonitoringEvent[] = [];
 
-  constructor(options: MonitoringOptions = {}) {
+  private constructor(options: MonitoringOptions = {}) {
     super();
     this.sampleInterval = options.sampleInterval || 1000;
     this.warningThreshold = options.warningThreshold || 1000;
     this.errorThreshold = options.errorThreshold || 5000;
+    this.setMaxListeners(100); // Allow more listeners for real-time monitoring
+  }
+
+  public static getInstance(options: MonitoringOptions = {}): MonitoringService {
+    if (!MonitoringService.instance) {
+      MonitoringService.instance = new MonitoringService(options);
+    }
+    return MonitoringService.instance;
   }
 
   public start(): void {
@@ -39,24 +61,81 @@ export class MonitoringService extends EventEmitter {
     this.emit('monitoring:stopped');
   }
 
-  private startMonitoring(): void {
-    const collectMetrics = () => {
-      if (!this.isMonitoring) return;
+  public subscribe(callback: (event: MonitoringEvent) => void): () => void {
+    this.on('monitoring-event', callback);
+    return () => this.unsubscribe(callback);
+  }
 
-      const now = Date.now();
-      const metrics = this.collectPerformanceMetrics();
-      this.metrics = {
-        ...metrics,
-        timestamps: [...this.metrics.timestamps, now]
-      };
+  public unsubscribe(callback: (event: MonitoringEvent) => void): void {
+    this.off('monitoring-event', callback);
+  }
 
-      this.emit('metrics:collected', this.metrics);
-      this.checkViolations(this.metrics);
+  public startMonitoring(): void {
+    if (!this.isMonitoring) {
+      this.isMonitoring = true;
+      this.eventHistory = [];
+    }
+  }
 
-      setTimeout(collectMetrics, this.sampleInterval);
+  public stopMonitoring(): void {
+    this.isMonitoring = false;
+  }
+
+  public trackPropUpdate(componentName: string, propName: string, propValue: any): void {
+    if (!this.isMonitoring) return;
+
+    const event: MonitoringEvent = {
+      type: 'prop-update',
+      componentName,
+      timestamp: Date.now(),
+      data: {
+        propName,
+        propValue
+      }
     };
 
-    collectMetrics();
+    this.eventHistory.push(event);
+    this.emit('monitoring-event', event);
+  }
+
+  public trackRender(componentName: string, renderDuration: number): void {
+    if (!this.isMonitoring) return;
+
+    const event: MonitoringEvent = {
+      type: 'render',
+      componentName,
+      timestamp: Date.now(),
+      data: {
+        renderDuration
+      }
+    };
+
+    this.eventHistory.push(event);
+    this.emit('monitoring-event', event);
+  }
+
+  public trackError(componentName: string, error: Error): void {
+    if (!this.isMonitoring) return;
+
+    const event: MonitoringEvent = {
+      type: 'error',
+      componentName,
+      timestamp: Date.now(),
+      data: {
+        error
+      }
+    };
+
+    this.eventHistory.push(event);
+    this.emit('monitoring-event', event);
+  }
+
+  public getEventHistory(): MonitoringEvent[] {
+    return [...this.eventHistory];
+  }
+
+  public clearEventHistory(): void {
+    this.eventHistory = [];
   }
 
   private collectPerformanceMetrics(): PerformanceMetrics {

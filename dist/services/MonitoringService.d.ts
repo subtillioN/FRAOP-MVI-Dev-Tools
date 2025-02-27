@@ -6,12 +6,14 @@ interface MonitoringOptions {
     errorThreshold?: number;
 }
 export declare class MonitoringService extends EventEmitter {
+    private static instance;
     private isMonitoring;
     private sampleInterval;
     private warningThreshold;
     private errorThreshold;
     private metrics;
-    constructor(options?: MonitoringOptions);
+    private constructor();
+    static getInstance(options?: MonitoringOptions): MonitoringService;
     start(): void;
     stop(): void;
     private startMonitoring;

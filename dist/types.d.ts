@@ -5,6 +5,8 @@ export interface PropUsage {
     valueChanges: number;
     lastValue?: any;
     timestamps: number[];
+    valueHistory?: any[];
+    relatedProps?: string[];
 }
 export interface ComponentUsage {
     componentName: string;
@@ -14,6 +16,11 @@ export interface ComponentUsage {
     renderDurations: number[];
 }
 export type MonitoringEventType = 'update' | 'warning' | 'start' | 'stop';
+export interface MonitoringEvent {
+    type: MonitoringEventType;
+    data: any;
+    timestamp: number;
+}
 export interface PerformanceMetrics {
     latencies: number[];
     errors: number;
