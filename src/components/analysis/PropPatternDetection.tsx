@@ -1,191 +1,151 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
+  Treemap,
   Tooltip,
-  Legend,
-  Cell
 } from 'recharts';
 import styles from '../../styles/base.module.css';
-import { PropAnalysisResult } from '../../utils/analysis/types';
+import { PropAnalysisResult } from '../../utils/propAnalysis';
 
-interface Props {
+interface PropPatternDetectionProps {
   data: PropAnalysisResult;
 }
 
 interface Pattern {
+  id: string;
   name: string;
+  value: number;
+  description: string;
   components: string[];
   props: string[];
-  frequency: number;
-  type: 'update' | 'value' | 'unused';
+  confidence: number;
 }
 
-const PropPatternDetection: React.FC<Props> = ({ data }) => {
-  const detectPatterns = (): Pattern[] => {
-    const patterns: Pattern[] = [];
+const PropPatternDetection: React.FC<PropPatternDetectionProps> = ({ data }) => {
+  const [selectedPattern, setSelectedPattern] = useState<Pattern | null>(null);
 
-    // Detect frequent update patterns
+  const patterns = useMemo(() => {
+    const detectedPatterns: Pattern[] = [];
+
+    // Detect frequently updated props pattern
     const frequentUpdates = data.components.flatMap(component =>
       component.props
         .filter(prop => (prop.valueChanges || 0) / (prop.usageCount || 1) > 0.7)
         .map(prop => ({
           componentName: component.componentName,
-          propName: prop.propName,
-          updateCount: prop.valueChanges || 0
+          propName: prop.name,
+          updateRatio: (prop.valueChanges || 0) / (prop.usageCount || 1)
         }))
     );
 
     if (frequentUpdates.length > 0) {
-      patterns.push({
+      detectedPatterns.push({
+        id: 'frequent-updates',
         name: 'Frequent Updates',
+        value: frequentUpdates.length,
+        description: 'Props that update more frequently than 70% of their usage count',
         components: [...new Set(frequentUpdates.map(u => u.componentName))],
         props: frequentUpdates.map(u => `${u.componentName}.${u.propName}`),
-        frequency: frequentUpdates.length,
-        type: 'update'
+        confidence: 0.9
       });
     }
 
     // Detect unused props pattern
     if (data.unusedProps.length > 0) {
-      patterns.push({
+      detectedPatterns.push({
+        id: 'unused-props',
         name: 'Unused Props',
+        value: data.unusedProps.length,
+        description: 'Props that are passed but never used',
         components: [...new Set(data.unusedProps.map(p => p.componentName))],
         props: data.unusedProps.map(p => `${p.componentName}.${p.propName}`),
-        frequency: data.unusedProps.length,
-        type: 'unused'
+        confidence: 1.0
       });
     }
 
-    // Detect prop dependencies
+    // Detect prop dependency patterns
     const propDependencies = new Map<string, Set<string>>();
     data.components.forEach(component => {
       component.props.forEach(prop => {
-        const propKey = `${component.componentName}.${prop.propName}`;
-        if (!propDependencies.has(propKey)) {
-          propDependencies.set(propKey, new Set());
+        if (prop.relatedProps && prop.relatedProps.length > 0) {
+          const key = `${component.componentName}.${prop.name}`;
+          propDependencies.set(key, new Set(prop.relatedProps));
         }
-
-        // Find other props that change when this prop changes
-        data.components.forEach(otherComponent => {
-          otherComponent.props.forEach(otherProp => {
-            if (prop.valueChanges && otherProp.valueChanges) {
-              const correlation = Math.abs(prop.valueChanges - otherProp.valueChanges) / prop.valueChanges;
-              if (correlation < 0.2) {
-                propDependencies.get(propKey)!.add(
-                  `${otherComponent.componentName}.${otherProp.propName}`
-                );
-              }
-            }
-          });
-        });
       });
     });
 
-    // Add dependency patterns
     if (propDependencies.size > 0) {
-      patterns.push({
+      detectedPatterns.push({
+        id: 'prop-dependencies',
         name: 'Prop Dependencies',
+        value: propDependencies.size,
+        description: 'Props that frequently change together',
         components: [...new Set([...propDependencies.keys()].map(k => k.split('.')[0]))],
         props: [...propDependencies.keys()],
-        frequency: propDependencies.size,
-        type: 'value'
+        confidence: 0.85
       });
     }
 
-    return patterns;
-  };
+    return detectedPatterns;
+  }, [data]);
 
-  const patterns = detectPatterns();
-  const chartData = patterns.map(pattern => ({
-    name: pattern.name,
-    value: pattern.frequency,
-    type: pattern.type
-  }));
-
-  const getPatternColor = (type: 'update' | 'value' | 'unused'): string => {
-    switch (type) {
-      case 'update':
-        return '#ef5350';
-      case 'value':
-        return '#4caf50';
-      case 'unused':
-        return '#ff9800';
-    }
-  };
-
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
-    const pattern = patterns.find(p => p.name === label);
-    if (!pattern) return null;
-
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (!active || !payload || !payload[0]) return null;
+    const pattern = payload[0].payload as Pattern;
     return (
-      <div className={styles.tooltip}>
+      <div className={styles['pattern-tooltip']}>
         <h4>{pattern.name}</h4>
-        <p>Frequency: {pattern.frequency}</p>
-        <p>Type: {pattern.type}</p>
-        <p>Components: {pattern.components.length}</p>
+        <p>{pattern.description}</p>
+        <p>Confidence: {(pattern.confidence * 100).toFixed(1)}%</p>
+        <p>Affected Components: {pattern.components.length}</p>
       </div>
     );
   };
 
   return (
-    <div className={styles.container}>
-      <h2>Prop Pattern Detection</h2>
-
-      <div className={styles.section}>
-        <h3>Detected Patterns</h3>
-        <div className={styles['chart-container']}>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="value" name="Frequency">
-                {chartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getPatternColor(entry.type)} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
+    <div className={styles['pattern-container']} data-testid="prop-pattern-detection">
+      <div className={styles['pattern-header']}>
+        <h3>Prop Usage Patterns</h3>
+        <span>{patterns.length} patterns detected</span>
       </div>
 
-      <div className={styles.section}>
-        {patterns.map((pattern, index) => (
-          <div key={index} className={styles['data-item']}>
-            <h3>{pattern.name}</h3>
+      <div className={styles['pattern-visualization']}>
+        <ResponsiveContainer width="100%" height={300}>
+          <Treemap
+            data={patterns}
+            dataKey="value"
+            nameKey="name"
+            onClick={(data) => setSelectedPattern(data as Pattern)}
+          >
+            <Tooltip content={<CustomTooltip />} />
+          </Treemap>
+        </ResponsiveContainer>
+      </div>
+
+      {selectedPattern && (
+        <div className={styles['pattern-details']}>
+          <h4>{selectedPattern.name}</h4>
+          <p>{selectedPattern.description}</p>
+          <div className={styles['pattern-stats']}>
             <div>
-              <strong>Frequency:</strong> {pattern.frequency}
+              <label>Confidence Score</label>
+              <span>{(selectedPattern.confidence * 100).toFixed(1)}%</span>
             </div>
             <div>
-              <strong>Type:</strong> {pattern.type}
-            </div>
-            <div>
-              <strong>Affected Components:</strong>
-              <ul>
-                {pattern.components.map(component => (
-                  <li key={component}>{component}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <strong>Affected Props:</strong>
-              <ul>
-                {pattern.props.map(prop => (
-                  <li key={prop}>{prop}</li>
-                ))}
-              </ul>
+              <label>Affected Components</label>
+              <span>{selectedPattern.components.length}</span>
             </div>
           </div>
-        ))}
-      </div>
+          <div className={styles['pattern-props']}>
+            <h5>Affected Props</h5>
+            <ul>
+              {selectedPattern.props.map((prop, index) => (
+                <li key={index}>{prop}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ResponsiveContainer,
   LineChart,
@@ -7,166 +7,187 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
+  Legend,
 } from 'recharts';
 import styles from '../../styles/base.module.css';
-import { PropAnalysisResult } from '../../utils/analysis/types';
-import { MonitoringService, MonitoringEvent } from '../../services/monitoring/MonitoringService';
+import { PropAnalysisResult } from '../../utils/propAnalysis';
 
-interface Props {
+interface MonitoringDashboardProps {
   data: PropAnalysisResult;
+  refreshInterval?: number; // in milliseconds
 }
 
-interface MetricsData {
+interface MetricHistory {
   timestamp: number;
-  activeComponents: number;
-  activeProps: number;
-  highUpdateProps: number;
+  totalUpdates: number;
+  highImpactProps: number;
+  averageUpdateFrequency: number;
 }
 
-const MonitoringDashboard: React.FC<Props> = ({ data }) => {
-  const [metricsHistory, setMetricsHistory] = useState<MetricsData[]>([]);
-  const [warnings, setWarnings] = useState<string[]>([]);
-  const monitoringService = MonitoringService.getInstance();
+const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ 
+  data, 
+  refreshInterval = 1000 
+}) => {
+  const [metricHistory, setMetricHistory] = useState<MetricHistory[]>([]);
+  const [selectedComponent, setSelectedComponent] = useState<string>('');
+  const [isMonitoring, setIsMonitoring] = useState(false);
 
-  useEffect(() => {
-    const handleEvent = (event: MonitoringEvent) => {
-      if (event.type === 'update') {
-        const newMetrics = calculateMetrics(data);
-        setMetricsHistory(prev => {
-          const newHistory = [...prev, newMetrics];
-          return newHistory.slice(-60); // Keep last 60 data points
-        });
-      } else if (event.type === 'warning' && event.data?.message) {
-        const message = event.data.message;
-        if (typeof message === 'string') {
-          setWarnings(prev => [...prev, message]);
+  // Calculate current metrics
+  const calculateMetrics = (): MetricHistory => {
+    let totalUpdates = 0;
+    let highImpactProps = 0;
+    let totalProps = 0;
+
+    data.components.forEach(component => {
+      component.props.forEach(prop => {
+        totalUpdates += prop.valueChanges || 0;
+        if ((prop.valueChanges || 0) / (prop.usageCount || 1) > 0.8) {
+          highImpactProps++;
         }
-      }
-    };
-
-    const unsubscribe = monitoringService.subscribe(handleEvent);
-    monitoringService.startMonitoring();
-
-    return () => {
-      monitoringService.stopMonitoring();
-      unsubscribe();
-    };
-  }, [data, monitoringService]);
-
-  const calculateMetrics = (analysis: PropAnalysisResult): MetricsData => {
-    const activeComponents = analysis.components.length;
-    const activeProps = analysis.components.reduce(
-      (sum, component) => sum + component.props.filter(p => p.usageCount > 0).length,
-      0
-    );
-    const highUpdateProps = analysis.components.reduce(
-      (sum, component) =>
-        sum +
-        component.props.filter(
-          p => (p.valueChanges || 0) / (p.usageCount || 1) > 0.5
-        ).length,
-      0
-    );
+        totalProps++;
+      });
+    });
 
     return {
       timestamp: Date.now(),
-      activeComponents,
-      activeProps,
-      highUpdateProps
+      totalUpdates,
+      highImpactProps,
+      averageUpdateFrequency: totalProps ? totalUpdates / totalProps : 0,
     };
   };
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
-    return (
-      <div className={styles.tooltip}>
-        <p>{new Date(label).toLocaleTimeString()}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} style={{ color: entry.color }}>
-            {`${entry.name}: ${entry.value}`}
-          </p>
-        ))}
-      </div>
-    );
+  // Start/stop monitoring
+  useEffect(() => {
+    if (!isMonitoring) return;
+
+    const interval = setInterval(() => {
+      const newMetrics = calculateMetrics();
+      setMetricHistory(prev => {
+        const newHistory = [...prev, newMetrics];
+        // Keep last 100 data points
+        return newHistory.slice(-100);
+      });
+    }, refreshInterval);
+
+    return () => clearInterval(interval);
+  }, [isMonitoring, data, refreshInterval]);
+
+  // Get active components list
+  const components = data.components.map(c => c.componentName);
+
+  // Get component-specific metrics
+  const getComponentMetrics = (componentName: string) => {
+    const component = data.components.find(c => c.componentName === componentName);
+    if (!component) return null;
+
+    const metrics = {
+      totalProps: component.props.length,
+      activeProps: component.props.filter(p => p.usageCount > 0).length,
+      highUpdateProps: component.props.filter(p => 
+        (p.valueChanges || 0) / (p.usageCount || 1) > 0.8
+      ).length,
+    };
+
+    return metrics;
   };
 
   return (
-    <div className={styles.container}>
-      <h2>Real-time Monitoring</h2>
-
-      <div className={styles['chart-container']}>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={metricsHistory}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="timestamp"
-              tickFormatter={value => new Date(value).toLocaleTimeString()}
-            />
-            <YAxis />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="activeComponents"
-              name="Active Components"
-              stroke="#8884d8"
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="activeProps"
-              name="Active Props"
-              stroke="#82ca9d"
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="highUpdateProps"
-              name="High Update Props"
-              stroke="#ff7300"
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+    <div className={styles['monitoring-container']} data-testid="monitoring-dashboard">
+      <div className={styles['monitoring-header']}>
+        <h3>Real-time Prop Monitoring</h3>
+        <button
+          className={`${styles.button} ${isMonitoring ? styles.active : ''}`}
+          onClick={() => setIsMonitoring(!isMonitoring)}
+        >
+          {isMonitoring ? 'Stop Monitoring' : 'Start Monitoring'}
+        </button>
       </div>
 
-      <div className={styles.section}>
-        <h3>Current Metrics</h3>
-        <div className={styles['data-grid']}>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Components Tracked</div>
-            <div className={styles['data-value']}>
-              {data.components.length}
-            </div>
-          </div>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Props Monitored</div>
-            <div className={styles['data-value']}>
-              {data.components.reduce((sum, c) => sum + c.props.length, 0)}
-            </div>
-          </div>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Frequent Updates</div>
-            <div className={styles['data-value']}>
-              {data.frequentUpdates.length}
-            </div>
-          </div>
-        </div>
+      <div className={styles['monitoring-controls']}>
+        <select
+          className={styles.select}
+          value={selectedComponent}
+          onChange={(e) => setSelectedComponent(e.target.value)}
+        >
+          <option value="">All Components</option>
+          {components.map(name => (
+            <option key={name} value={name}>{name}</option>
+          ))}
+        </select>
       </div>
 
-      {warnings.length > 0 && (
-        <div className={styles.section}>
-          <h3>Warnings</h3>
-          <ul>
-            {warnings.map((warning, index) => (
-              <li key={index} className={styles.warning}>
-                {warning}
-              </li>
-            ))}
-          </ul>
+      <div className={styles['monitoring-metrics']}>
+        {selectedComponent && getComponentMetrics(selectedComponent) && (
+          <div className={styles['component-metrics']}>
+            <h4>{selectedComponent} Metrics</h4>
+            <div className={styles['metric-grid']}>
+              <div className={styles['metric-item']}>
+                <label>Total Props</label>
+                <span>{getComponentMetrics(selectedComponent)?.totalProps}</span>
+              </div>
+              <div className={styles['metric-item']}>
+                <label>Active Props</label>
+                <span>{getComponentMetrics(selectedComponent)?.activeProps}</span>
+              </div>
+              <div className={styles['metric-item']}>
+                <label>High Update Props</label>
+                <span>{getComponentMetrics(selectedComponent)?.highUpdateProps}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className={styles['chart-container']}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={metricHistory}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={(timestamp) => new Date(timestamp).toLocaleTimeString()}
+              />
+              <YAxis />
+              <Tooltip
+                labelFormatter={(timestamp) => new Date(timestamp).toLocaleTimeString()}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="totalUpdates"
+                name="Total Updates"
+                stroke="#8884d8"
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="highImpactProps"
+                name="High Impact Props"
+                stroke="#82ca9d"
+                dot={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="averageUpdateFrequency"
+                name="Avg Update Freq"
+                stroke="#ffc658"
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      )}
+
+        {data.frequentUpdates.length > 0 && (
+          <div className={styles['monitoring-alerts']}>
+            <h4>Active Alerts</h4>
+            <ul>
+              {data.frequentUpdates.map((update, index) => (
+                <li key={index}>
+                  {update.componentName}.{update.propName} has {update.updateCount} updates
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

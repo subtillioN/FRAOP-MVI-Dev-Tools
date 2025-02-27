@@ -5,176 +5,176 @@ import {
   Line,
   XAxis,
   YAxis,
-  CartesianGrid,
   Tooltip,
-  Legend
+  CartesianGrid,
 } from 'recharts';
+import { MonitoringService, MonitoringEvent } from '../../services/MonitoringService';
 import styles from '../../styles/base.module.css';
-import { PropAnalysisResult } from '../../utils/analysis/types';
-import { MonitoringService } from '../../services/monitoring/MonitoringService';
 
-interface Props {
-  data: PropAnalysisResult;
-  monitoringService: MonitoringService;
+interface RealTimeMonitoringProps {
+  timeWindow?: number; // milliseconds to show in chart
 }
 
-interface MetricsData {
-  timestamp: number;
-  renderCount: number;
-  averageRenderTime: number;
-  totalComponents: number;
-}
-
-const RealTimeMonitoring: React.FC<Props> = ({ data, monitoringService }) => {
-  const [metrics, setMetrics] = useState<MetricsData[]>([]);
-  const [alerts, setAlerts] = useState<string[]>([]);
+const RealTimeMonitoring: React.FC<RealTimeMonitoringProps> = ({
+  timeWindow = 5 * 60 * 1000, // 5 minutes default
+}) => {
+  const [metrics, setMetrics] = useState<MonitoringEvent[]>([]);
+  const [violations, setViolations] = useState<MonitoringEvent[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
 
   useEffect(() => {
-    const handleEvent = (event: { type: string; data?: { renderDuration?: number; message?: string } }) => {
-      if (event.type === 'render' && event.data?.renderDuration !== undefined) {
-        const renderDuration = event.data.renderDuration;
-        setMetrics(prevMetrics => {
-          const newMetric: MetricsData = {
-            timestamp: Date.now(),
-            renderCount: 1,
-            averageRenderTime: renderDuration,
-            totalComponents: 1
-          };
+    const monitoringService = MonitoringService.getInstance();
 
-          const newMetrics = [...prevMetrics, newMetric].slice(-60); // Keep last 60 data points
-          return newMetrics;
-        });
-      } else if (event.type === 'warning' && event.data?.message) {
-        const message = event.data.message;
-        if (typeof message === 'string') {
-          setAlerts(prev => [...prev, message]);
-        }
-      }
+    const handleMetrics = (event: MonitoringEvent) => {
+      setMetrics(prev => [...prev.slice(-50), event]); // Keep last 50 data points
     };
 
-    const unsubscribe = monitoringService.subscribe(handleEvent);
+    const handleViolation = (event: MonitoringEvent) => {
+      setViolations(prev => [...prev.slice(-10), event]); // Keep last 10 violations
+    };
+
+    const handleStart = () => setIsRunning(true);
+    const handleStop = () => setIsRunning(false);
+
+    monitoringService.on('metrics:collected', handleMetrics);
+    monitoringService.on('monitoring:violation', handleViolation);
+    monitoringService.on('monitoring:started', handleStart);
+    monitoringService.on('monitoring:stopped', handleStop);
+
+    // Start monitoring if not already running
+    if (!isRunning) {
+      monitoringService.start();
+    }
 
     return () => {
-      unsubscribe();
+      monitoringService.removeListener('metrics:collected', handleMetrics);
+      monitoringService.removeListener('monitoring:violation', handleViolation);
+      monitoringService.removeListener('monitoring:started', handleStart);
+      monitoringService.removeListener('monitoring:stopped', handleStop);
     };
-  }, [monitoringService]);
+  }, [isRunning]);
 
-  useEffect(() => {
-    if (data) {
-      const totalRenderCount = data.components.reduce((sum, c) => 
-        sum + c.props.reduce((propSum, p) => propSum + (p.valueChanges || 0), 0), 
-        0
-      );
-      const totalComponents = data.components.length;
-
-      if (totalComponents > 0) {
-        setMetrics(prevMetrics => {
-          const newMetric: MetricsData = {
-            timestamp: Date.now(),
-            renderCount: totalRenderCount,
-            averageRenderTime: totalRenderCount / totalComponents,
-            totalComponents
-          };
-
-          const newMetrics = [...prevMetrics, newMetric].slice(-60);
-          return newMetrics;
-        });
-      }
-    }
-  }, [data]);
-
-  const calculateAverageRenderTime = () => {
-    if (metrics.length === 0) return 0;
-    const sum = metrics.reduce((acc, metric) => acc + metric.averageRenderTime, 0);
-    return Math.round(sum / metrics.length);
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString();
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
+    if (!active || !payload || !payload[0]) return null;
+
+    const data = payload[0].payload;
     return (
-      <div className={styles.tooltip}>
-        <p>{new Date(label).toLocaleTimeString()}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} style={{ color: entry.color }}>
-            {`${entry.name}: ${entry.value}`}
-          </p>
-        ))}
+      <div className={styles['monitoring-tooltip']}>
+        <h4>{formatTime(data.timestamp)}</h4>
+        <p>Analysis Time: {data.data.analysisTime.toFixed(2)}ms</p>
+        <p>Memory Usage: {(data.data.memoryUsage / 1024 / 1024).toFixed(2)}MB</p>
+        <p>Components: {data.data.componentCount}</p>
+        <p>Props: {data.data.propCount}</p>
+        <p>Updates/s: {data.data.updateFrequency}</p>
       </div>
     );
   };
 
   return (
-    <div className={styles.container}>
-      <h2>Real-time Performance Monitoring</h2>
-
-      <div className={styles['chart-container']}>
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={metrics}>
-            <CartesianGrid strokeDasharray="3 3" />
-            <XAxis
-              dataKey="timestamp"
-              tickFormatter={value => new Date(value).toLocaleTimeString()}
-            />
-            <YAxis />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Line
-              type="monotone"
-              dataKey="renderCount"
-              name="Render Count"
-              stroke="#8884d8"
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="averageRenderTime"
-              name="Average Render Time (ms)"
-              stroke="#82ca9d"
-              dot={false}
-            />
-            <Line
-              type="monotone"
-              dataKey="totalComponents"
-              name="Total Components"
-              stroke="#ff7300"
-              dot={false}
-            />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      <div className={styles.section}>
-        <h3>Current Stats</h3>
-        <div className={styles['data-grid']}>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Total Components</div>
-            <div className={styles['data-value']}>{data.components.length}</div>
-          </div>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Total Props</div>
-            <div className={styles['data-value']}>
-              {data.components.reduce((sum, c) => sum + c.props.length, 0)}
-            </div>
-          </div>
-          <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Average Render Time</div>
-            <div className={styles['data-value']}>{calculateAverageRenderTime()}ms</div>
-          </div>
+    <div className={styles['monitoring-container']}>
+      <div className={styles['monitoring-header']}>
+        <h3>Real-Time Performance Monitoring</h3>
+        <div className={styles['monitoring-controls']}>
+          <button
+            className={styles['monitoring-toggle']}
+            onClick={() => {
+              const service = MonitoringService.getInstance();
+              if (isRunning) {
+                service.stop();
+              } else {
+                service.start();
+              }
+            }}
+          >
+            {isRunning ? 'Stop Monitoring' : 'Start Monitoring'}
+          </button>
         </div>
       </div>
 
-      {alerts.length > 0 && (
-        <div className={styles.section}>
-          <h3>Alerts</h3>
-          <ul>
-            {alerts.map((alert, index) => (
-              <li key={index} className={styles.warning}>
-                {alert}
-              </li>
-            ))}
-          </ul>
+      <div className={styles['monitoring-metrics']}>
+        <div className={styles['chart-container']}>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={metrics}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis
+                dataKey="timestamp"
+                tickFormatter={formatTime}
+                interval="preserveStartEnd"
+              />
+              <YAxis yAxisId="time" name="Analysis Time (ms)" />
+              <YAxis yAxisId="memory" orientation="right" name="Memory (MB)" />
+              <Tooltip content={<CustomTooltip />} />
+              <Line
+                yAxisId="time"
+                type="monotone"
+                dataKey="data.analysisTime"
+                stroke="#8884d8"
+                name="Analysis Time"
+                dot={false}
+              />
+              <Line
+                yAxisId="memory"
+                type="monotone"
+                dataKey="data.memoryUsage"
+                stroke="#82ca9d"
+                name="Memory Usage"
+                dot={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-      )}
+
+        {violations.length > 0 && (
+          <div className={styles['monitoring-alerts']}>
+            <h4>Recent Violations</h4>
+            <ul>
+              {violations.map((violation, index) => (
+                <li key={index}>
+                  <span className={styles['alert-timestamp']}>
+                    {formatTime(violation.timestamp)}
+                  </span>
+                  <ul>
+                    {violation.data.violations.map((v: string, i: number) => (
+                      <li key={i}>{v}</li>
+                    ))}
+                  </ul>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className={styles['monitoring-stats']}>
+          <div className={styles['stat-item']}>
+            <label>Components Tracked</label>
+            <span>
+              {metrics.length > 0
+                ? metrics[metrics.length - 1].data.componentCount
+                : 0}
+            </span>
+          </div>
+          <div className={styles['stat-item']}>
+            <label>Props Monitored</label>
+            <span>
+              {metrics.length > 0 ? metrics[metrics.length - 1].data.propCount : 0}
+            </span>
+          </div>
+          <div className={styles['stat-item']}>
+            <label>Update Rate</label>
+            <span>
+              {metrics.length > 0
+                ? `${metrics[
+                    metrics.length - 1
+                  ].data.updateFrequency.toFixed(2)}/s`
+                : '0/s'}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
