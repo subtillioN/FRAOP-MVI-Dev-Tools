@@ -1,0 +1,41 @@
+# Source
+src/
+tests/
+docs/
+
+# Configuration
+.github/
+.vscode/
+.idea/
+.editorconfig
+.eslintrc.js
+.prettierrc
+jest.config.js
+tsconfig.json
+rollup.config.js
+
+# Development
+node_modules/
+coverage/
+*.log
+.DS_Store
+
+# Examples
+examples/
+demo/
+
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.travis.yml
+.gitlab-ci.yml
+.circleci/
+
+# Environment
+.env
+.env.*
+
+# Build artifacts
+*.tsbuildinfo 
