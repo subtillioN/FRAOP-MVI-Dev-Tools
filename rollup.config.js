@@ -1,10 +1,10 @@
-import typescript from '@rollup/plugin-typescript';
 import resolve from '@rollup/plugin-node-resolve';
 import commonjs from '@rollup/plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
 import { terser } from 'rollup-plugin-terser';
 import postcss from 'rollup-plugin-postcss';
-import autoprefixer from 'autoprefixer';
-import cssnano from 'cssnano';
+
+const isDev = process.env.NODE_ENV === 'development';
 
 export default {
   input: 'src/index.ts',
@@ -20,23 +20,19 @@ export default {
       sourcemap: true
     }
   ],
-  external: ['react', 'react-dom', 'recharts', 'd3', '@rosencharts/react'],
+  external: ['react', 'react-dom', 'd3', 'recharts'],
   plugins: [
-    postcss({
-      plugins: [
-        autoprefixer(),
-        cssnano()
-      ],
-      modules: true,
-      extract: 'styles.css'
-    }),
+    resolve(),
+    commonjs(),
     typescript({
       tsconfig: './tsconfig.json',
       declaration: true,
-      declarationDir: 'dist/types'
+      declarationDir: './dist/types'
     }),
-    resolve(),
-    commonjs(),
-    terser()
+    postcss({
+      modules: true,
+      minimize: !isDev
+    }),
+    !isDev && terser()
   ]
 }; 
