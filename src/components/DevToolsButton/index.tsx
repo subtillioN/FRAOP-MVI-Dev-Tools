@@ -1,33 +1,37 @@
 import React from 'react';
-import styles from '../../styles/base.module.css';
+import { IconButton, Tooltip } from '@mui/material';
+import SettingsIcon from '@mui/icons-material/Settings';
 
-interface DevToolsButtonProps {
-  onClick: () => void;
-  isOpen: boolean;
+export interface DevToolsButtonProps {
+  onClick?: () => void;
+  tooltipPlacement?: 'top' | 'bottom' | 'left' | 'right';
+  tooltipTitle?: string;
 }
 
-const DevToolsButton: React.FC<DevToolsButtonProps> = ({ onClick, isOpen }) => {
+export function DevToolsButton({
+  onClick,
+  tooltipPlacement = 'bottom',
+  tooltipTitle = 'Developer Tools - Task & Feature Analysis'
+}: DevToolsButtonProps) {
   return (
-    <button
-      onClick={onClick}
-      className={styles.button}
-      style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        zIndex: 1000,
-        padding: '10px 20px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-        boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-      }}
-    >
-      {isOpen ? 'Hide Dev Tools' : 'Show Dev Tools'}
-    </button>
+    <Tooltip title={tooltipTitle} arrow placement={tooltipPlacement}>
+      <IconButton
+        aria-label="Developer Tools"
+        color="primary"
+        onClick={onClick}
+        sx={{
+          backgroundColor: 'rgba(0, 0, 0, 0.4)',
+          '&:hover': {
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            boxShadow: '0 0 12px rgba(59, 130, 246, 0.3)',
+          },
+          boxShadow: '0 0 8px rgba(59, 130, 246, 0.2)',
+        }}
+      >
+        <SettingsIcon />
+      </IconButton>
+    </Tooltip>
   );
-};
+}
 
 export default DevToolsButton; 

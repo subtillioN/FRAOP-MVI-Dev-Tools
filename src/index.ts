@@ -16,6 +16,7 @@ export * from './components/DevTools/ComponentRelationship';
 export * from './components/DevTools/PropValueHistory';
 export * from './components/DevTools/PropTimeline';
 export * from './components/MonitoringDashboard';
+export * from './components/DevToolsButton';
 
 // Demo
 export * from './demo/Demo'; 
