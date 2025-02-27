@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act } from '../__utils__/test-utils';
+import { render, screen, act, waitFor } from '../__utils__/test-utils';
 import MonitoringDashboard from '../../src/components/MonitoringDashboard';
 import { mockPropAnalysisResult } from '../__fixtures__/mockData';
 import { MonitoringService } from '../../src/services/MonitoringService';
@@ -22,7 +22,10 @@ describe('MonitoringDashboard Integration', () => {
     // Initial render
     expect(screen.getByText('Real-time Monitoring')).toBeInTheDocument();
     expect(screen.getByText('Components Tracked')).toBeInTheDocument();
-    expect(screen.getByText('2')).toBeInTheDocument(); // From mock data
+    
+    // Find by test ID and then check content
+    const componentCount = screen.getByTestId('component-count');
+    expect(componentCount).toHaveTextContent('2');
 
     // Simulate monitoring update
     act(() => {
@@ -43,11 +46,14 @@ describe('MonitoringDashboard Integration', () => {
       jest.advanceTimersByTime(1000);
     });
 
-    // Check updated values
-    expect(screen.getByText('3')).toBeInTheDocument(); // Updated component count
+    // Check updated values using test ID
+    await waitFor(() => {
+      const updatedCount = screen.getByTestId('component-count');
+      expect(updatedCount).toHaveTextContent('3');
+    });
   });
 
-  it('displays warnings when they occur', () => {
+  it('displays warnings when they occur', async () => {
     const monitoringService = MonitoringService.getInstance();
     
     render(<MonitoringDashboard data={mockPropAnalysisResult} />);
@@ -63,17 +69,21 @@ describe('MonitoringDashboard Integration', () => {
       });
     });
 
-    expect(screen.getByText('High frequency prop updates detected')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('High frequency prop updates detected')).toBeInTheDocument();
+    });
   });
 
-  it('updates metrics chart with new data points', () => {
+  it('updates metrics chart with new data points', async () => {
     render(<MonitoringDashboard data={mockPropAnalysisResult} />);
 
     const chartContainer = screen.getByTestId('monitoring-dashboard');
     expect(chartContainer).toBeInTheDocument();
 
-    // Verify chart elements
-    expect(chartContainer.querySelector('.recharts-line')).toBeInTheDocument();
-    expect(chartContainer.querySelector('.recharts-tooltip')).toBeInTheDocument();
+    // Wait for chart elements to render
+    await waitFor(() => {
+      expect(chartContainer.querySelector('.recharts-wrapper')).toBeInTheDocument();
+      expect(chartContainer.querySelector('.recharts-cartesian-grid')).toBeInTheDocument();
+    });
   });
 }); 

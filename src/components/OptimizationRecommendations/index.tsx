@@ -22,6 +22,16 @@ interface ChartDataEntry {
   impact: 'high' | 'medium' | 'low';
 }
 
+// Add type for fill function
+type FillFunction = (entry: ChartDataEntry) => string;
+
+// Update Bar component to accept fill function
+const CustomBar: React.FC<any> = (props) => {
+  const { fill, entry, ...rest } = props;
+  const fillColor = typeof fill === 'function' ? fill(entry) : fill;
+  return <rect {...rest} fill={fillColor} />;
+};
+
 const getBarColor = (impact: 'high' | 'medium' | 'low'): string => {
   switch (impact) {
     case 'high': return '#ef5350';
@@ -160,7 +170,7 @@ function ${component.componentName.toLowerCase()}Reducer(
               <Tooltip />
               <Bar 
                 dataKey="value"
-                fill={(entry: ChartDataEntry) => getBarColor(entry.impact)}
+                shape={<CustomBar fill={(entry: ChartDataEntry) => getBarColor(entry.impact)} />}
               />
             </BarChart>
           </div>

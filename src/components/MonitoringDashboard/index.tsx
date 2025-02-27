@@ -98,17 +98,21 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ data }) => {
         <div className={styles['data-grid']}>
           <div className={styles['data-item']}>
             <div className={styles['data-label']}>Components Tracked</div>
-            <div className={styles['data-value']}>{data.components.length}</div>
+            <div className={styles['data-value']} data-testid="component-count">
+              {data.components.length}
+            </div>
           </div>
           <div className={styles['data-item']}>
             <div className={styles['data-label']}>Props Monitored</div>
-            <div className={styles['data-value']}>
+            <div className={styles['data-value']} data-testid="props-count">
               {data.components.reduce((sum, c) => sum + c.props.length, 0)}
             </div>
           </div>
           <div className={styles['data-item']}>
             <div className={styles['data-label']}>Frequent Updates</div>
-            <div className={styles['data-value']}>{data.frequentUpdates.length}</div>
+            <div className={styles['data-value']} data-testid="updates-count">
+              {data.frequentUpdates.length}
+            </div>
           </div>
         </div>
       </div>
@@ -116,7 +120,7 @@ const MonitoringDashboard: React.FC<MonitoringDashboardProps> = ({ data }) => {
       {warnings.length > 0 && (
         <div className={styles.section}>
           <h3>Warnings</h3>
-          <ul>
+          <ul data-testid="warnings-list">
             {warnings.map((warning, index) => (
               <li key={index} className={styles['performance-low']}>
                 {warning}
