@@ -1,40 +1,6 @@
-// Core functionality
-export { PropAnalyzer } from './core/PropAnalyzer';
-export type { PropAnalysisResult, PropUsage, ComponentUsage, PropPattern } from './core/PropAnalyzer';
-export { MonitoringService } from './services/MonitoringService';
-export type { MonitoringEvent } from './services/MonitoringService';
+import { MonitoringService } from './services/MonitoringService';
+import { DevToolsConfig } from './types';
 
-// Components
-export { default as DevToolsButton } from './components/DevToolsButton';
-export { default as DevToolsPanel } from './components/DevToolsPanel';
-export { default as MonitoringDashboard } from './components/MonitoringDashboard';
-export { default as PropPatternDetection } from './components/PropPatternDetection';
-export { default as PropTimeline } from './components/PropTimeline';
-export { default as RealTimeMonitoring } from './components/RealTimeMonitoring';
-export { default as PerformanceImpact } from './components/PerformanceImpact';
-export { default as OptimizationRecommendations } from './components/OptimizationRecommendations';
-
-// Integration
-export { initDevTools } from './integration';
-export type { DevToolsConfig } from './types';
-
-// Configuration types
-export interface DevToolsConfig {
-  target: HTMLElement;
-  features?: Array<
-    | 'monitoring'
-    | 'optimization'
-    | 'analysis'
-    | 'patterns'
-    | 'timeline'
-    | 'performance'
-  >;
-  theme?: 'light' | 'dark';
-  plugins?: any[];
-  position?: { x: number; y: number };
-}
-
-// Initialization
 export function initDevTools(config: DevToolsConfig): void {
   if (process.env.NODE_ENV !== 'development') {
     return;

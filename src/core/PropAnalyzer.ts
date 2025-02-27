@@ -29,6 +29,7 @@ export interface PropPattern {
 export interface FrequentUpdate {
   componentName: string;
   propName: string;
+  updateCount: number;
 }
 
 export interface PropAnalysisResult {
@@ -40,6 +41,7 @@ export interface PropAnalysisResult {
 
 export class PropAnalyzer {
   private static instance: PropAnalyzer;
+  private components: Map<string, ComponentUsage> = new Map();
 
   private constructor() {}
 
@@ -50,13 +52,82 @@ export class PropAnalyzer {
     return PropAnalyzer.instance;
   }
 
-  public analyze(): PropAnalysisResult {
-    // Implementation will be added later
+  public analyzeProps(): PropAnalysisResult {
+    const components = Array.from(this.components.values());
+    const unusedProps = this.findUnusedProps(components);
+    const propPatterns = this.findPropPatterns(components);
+    const frequentUpdates = this.findFrequentUpdates(components);
+
     return {
-      components: [],
-      unusedProps: [],
-      propPatterns: [],
-      frequentUpdates: []
+      components,
+      unusedProps,
+      propPatterns,
+      frequentUpdates
     };
+  }
+
+  private findUnusedProps(components: ComponentUsage[]): UnusedProp[] {
+    return components.flatMap(component =>
+      component.props
+        .filter(prop => prop.usageCount === 0)
+        .map(prop => ({
+          componentName: component.componentName,
+          propName: prop.name,
+          updateCount: 0
+        }))
+    );
+  }
+
+  private findPropPatterns(components: ComponentUsage[]): PropPattern[] {
+    const patterns: PropPattern[] = [];
+    const allProps = components.flatMap(c => c.props);
+
+    // Find update patterns
+    const updateRatios = allProps.map(prop => 
+      (prop.valueChanges || 0) / (prop.usageCount || 1)
+    );
+    const avgUpdateRatio = updateRatios.reduce((a, b) => a + b, 0) / updateRatios.length;
+
+    if (avgUpdateRatio > 0.5) {
+      patterns.push({
+        type: 'update',
+        frequency: avgUpdateRatio
+      });
+    }
+
+    // Find value patterns
+    const valueTypes = new Map<string, number>();
+    allProps.forEach(prop => {
+      const count = valueTypes.get(prop.type) || 0;
+      valueTypes.set(prop.type, count + 1);
+    });
+
+    valueTypes.forEach((count, type) => {
+      const frequency = count / allProps.length;
+      if (frequency > 0.3) {
+        patterns.push({
+          type: 'value',
+          frequency
+        });
+      }
+    });
+
+    return patterns;
+  }
+
+  private findFrequentUpdates(components: ComponentUsage[]): FrequentUpdate[] {
+    return components.flatMap(component =>
+      component.props
+        .filter(prop => (prop.valueChanges || 0) > 100)
+        .map(prop => ({
+          componentName: component.componentName,
+          propName: prop.name,
+          updateCount: prop.valueChanges || 0
+        }))
+    );
+  }
+
+  public reset(): void {
+    this.components.clear();
   }
 } 

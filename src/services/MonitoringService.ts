@@ -1,99 +1,84 @@
 import { PropAnalyzer, PropAnalysisResult } from '../core/PropAnalyzer';
 
+export type MonitoringEventType = 'metrics' | 'alert' | 'violation';
+
 export interface MonitoringEvent {
-  type: 'update' | 'warning' | 'error';
+  type: MonitoringEventType;
   timestamp: number;
   data: any;
 }
 
+type EventCallback = (event: MonitoringEvent) => void;
+
 export class MonitoringService {
   private static instance: MonitoringService;
+  private listeners: EventCallback[] = [];
+  private isMonitoring: boolean = false;
+  private monitoringInterval: number | null = null;
   private analyzer: PropAnalyzer;
-  private listeners: Set<(event: MonitoringEvent) => void>;
-  private updateInterval: number;
-  private intervalId?: number;
 
   private constructor() {
-    this.analyzer = new PropAnalyzer();
-    this.listeners = new Set();
-    this.updateInterval = 1000; // 1 second default
+    this.analyzer = PropAnalyzer.getInstance();
   }
 
-  static getInstance(): MonitoringService {
+  public static getInstance(): MonitoringService {
     if (!MonitoringService.instance) {
       MonitoringService.instance = new MonitoringService();
     }
     return MonitoringService.instance;
   }
 
-  startMonitoring(interval?: number): void {
-    if (interval) {
-      this.updateInterval = interval;
+  public subscribe(callback: EventCallback): () => void {
+    this.listeners.push(callback);
+    return () => {
+      this.listeners = this.listeners.filter(cb => cb !== callback);
+    };
+  }
+
+  public startMonitoring(): void {
+    if (this.isMonitoring) return;
+    this.isMonitoring = true;
+
+    // Simulate monitoring events
+    this.monitoringInterval = window.setInterval(() => {
+      const analysis = this.analyzer.analyzeProps();
+      this.checkMetrics(analysis);
+      this.checkViolations(analysis);
+    }, 1000);
+  }
+
+  public stopMonitoring(): void {
+    if (!this.isMonitoring) return;
+    
+    if (this.monitoringInterval !== null) {
+      window.clearInterval(this.monitoringInterval);
+      this.monitoringInterval = null;
     }
-
-    if (this.intervalId) {
-      this.stopMonitoring();
-    }
-
-    this.intervalId = window.setInterval(() => {
-      try {
-        const analysis = this.analyzer.analyzeProps();
-        this.notifyListeners({
-          type: 'update',
-          timestamp: Date.now(),
-          data: analysis
-        });
-
-        this.checkForWarnings(analysis);
-      } catch (error) {
-        this.notifyListeners({
-          type: 'error',
-          timestamp: Date.now(),
-          data: error
-        });
-      }
-    }, this.updateInterval);
+    
+    this.isMonitoring = false;
   }
 
-  stopMonitoring(): void {
-    if (this.intervalId) {
-      window.clearInterval(this.intervalId);
-      this.intervalId = undefined;
-    }
-  }
-
-  subscribe(listener: (event: MonitoringEvent) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-
-  getAnalyzer(): PropAnalyzer {
-    return this.analyzer;
-  }
-
-  private notifyListeners(event: MonitoringEvent): void {
-    this.listeners.forEach(listener => {
-      try {
-        listener(event);
-      } catch (error) {
-        console.error('Error in monitoring listener:', error);
-      }
+  private checkMetrics(analysis: PropAnalysisResult): void {
+    this.notifyListeners({
+      type: 'metrics',
+      timestamp: Date.now(),
+      data: analysis
     });
   }
 
-  private checkForWarnings(analysis: PropAnalysisResult): void {
+  private checkViolations(analysis: PropAnalysisResult): void {
     // Check for frequent updates
-    const highFrequencyUpdates = analysis.frequentUpdates.filter(
+    const highUpdateProps = analysis.frequentUpdates.filter(
       update => update.updateCount > 100
     );
 
-    if (highFrequencyUpdates.length > 0) {
+    if (highUpdateProps.length > 0) {
       this.notifyListeners({
-        type: 'warning',
+        type: 'violation',
         timestamp: Date.now(),
         data: {
           message: 'High frequency prop updates detected',
-          components: highFrequencyUpdates
+          props: highUpdateProps
         }
       });
     }
@@ -101,32 +86,17 @@ export class MonitoringService {
     // Check for unused props
     if (analysis.unusedProps.length > 0) {
       this.notifyListeners({
-        type: 'warning',
+        type: 'alert',
         timestamp: Date.now(),
         data: {
           message: 'Unused props detected',
-          components: analysis.unusedProps
+          props: analysis.unusedProps
         }
       });
     }
+  }
 
-    // Check for components with many props
-    const componentsWithManyProps = analysis.components.filter(
-      component => component.props.length > 10
-    );
-
-    if (componentsWithManyProps.length > 0) {
-      this.notifyListeners({
-        type: 'warning',
-        timestamp: Date.now(),
-        data: {
-          message: 'Components with many props detected',
-          components: componentsWithManyProps.map(c => ({
-            name: c.componentName,
-            propCount: c.props.length
-          }))
-        }
-      });
-    }
+  private notifyListeners(event: MonitoringEvent): void {
+    this.listeners.forEach(callback => callback(event));
   }
 } 
