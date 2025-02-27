@@ -1,21 +1,21 @@
-import { PropAnalyzer } from '../core/PropAnalyzer';
-export interface MonitoringEvent {
-    type: 'update' | 'warning' | 'error';
-    timestamp: number;
-    data: any;
+/// <reference types="node" />
+import { EventEmitter } from 'events';
+interface MonitoringOptions {
+    sampleInterval?: number;
+    warningThreshold?: number;
+    errorThreshold?: number;
 }
-export declare class MonitoringService {
-    private static instance;
-    private analyzer;
-    private listeners;
-    private updateInterval;
-    private intervalId?;
-    private constructor();
-    static getInstance(): MonitoringService;
-    startMonitoring(interval?: number): void;
-    stopMonitoring(): void;
-    subscribe(listener: (event: MonitoringEvent) => void): () => void;
-    getAnalyzer(): PropAnalyzer;
-    private notifyListeners;
-    private checkForWarnings;
+export declare class MonitoringService extends EventEmitter {
+    private isMonitoring;
+    private sampleInterval;
+    private warningThreshold;
+    private errorThreshold;
+    private metrics;
+    constructor(options?: MonitoringOptions);
+    start(): void;
+    stop(): void;
+    private startMonitoring;
+    private collectPerformanceMetrics;
+    private checkViolations;
 }
+export {};

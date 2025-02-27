@@ -1,4 +1,4 @@
-interface DevToolsConfig {
+export interface DevToolsConfig {
     target: HTMLElement;
     features?: Array<'monitoring' | 'optimization' | 'analysis' | 'patterns' | 'timeline' | 'performance'>;
     theme?: 'light' | 'dark';
@@ -11,5 +11,3 @@ interface DevToolsConfig {
         y: number;
     };
 }
-
-export { DevToolsConfig };
