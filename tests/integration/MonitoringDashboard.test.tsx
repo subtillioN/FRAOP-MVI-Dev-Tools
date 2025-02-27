@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, act, waitFor } from '../__utils__/test-utils';
+import { render, screen, act, waitFor, cleanup } from '../__utils__/test-utils';
 import MonitoringDashboard from '../../src/components/MonitoringDashboard';
 import { mockPropAnalysisResult } from '../__fixtures__/mockData';
 import { MonitoringService } from '../../src/services/MonitoringService';
@@ -7,17 +7,17 @@ import { MonitoringService } from '../../src/services/MonitoringService';
 describe('MonitoringDashboard Integration', () => {
   beforeEach(() => {
     jest.useFakeTimers();
+    cleanup(); // Clean up after each test
   });
 
   afterEach(() => {
     jest.useRealTimers();
     jest.clearAllMocks();
+    cleanup();
   });
 
   it('renders real-time metrics and updates with new data', async () => {
-    const monitoringService = MonitoringService.getInstance();
-    
-    render(<MonitoringDashboard data={mockPropAnalysisResult} />);
+    const { unmount } = render(<MonitoringDashboard data={mockPropAnalysisResult} />);
 
     // Initial render
     expect(screen.getByText('Real-time Monitoring')).toBeInTheDocument();
@@ -27,24 +27,23 @@ describe('MonitoringDashboard Integration', () => {
     const componentCount = screen.getByTestId('component-count');
     expect(componentCount).toHaveTextContent('2');
 
-    // Simulate monitoring update
-    act(() => {
-      monitoringService['notifyListeners']({
-        type: 'update',
-        timestamp: Date.now(),
-        data: {
-          ...mockPropAnalysisResult,
-          components: [
-            ...mockPropAnalysisResult.components,
-            {
-              componentName: 'NewComponent',
-              props: []
-            }
-          ]
+    // Clean up previous render
+    unmount();
+
+    // Simulate monitoring update with new render
+    const updatedData = {
+      ...mockPropAnalysisResult,
+      components: [
+        ...mockPropAnalysisResult.components,
+        {
+          componentName: 'NewComponent',
+          props: []
         }
-      });
-      jest.advanceTimersByTime(1000);
-    });
+      ]
+    };
+
+    // Render with updated data
+    render(<MonitoringDashboard data={updatedData} />);
 
     // Check updated values using test ID
     await waitFor(() => {

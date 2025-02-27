@@ -15,6 +15,19 @@ interface Pattern {
   type: 'update' | 'value' | 'unused';
 }
 
+// Custom Bar component to handle dynamic fill
+const CustomBar: React.FC<any> = (props) => {
+  const { fill, entry, ...rest } = props;
+  const fillColor = (() => {
+    switch (entry.type) {
+      case 'update': return '#ef5350';
+      case 'value': return '#4caf50';
+      default: return '#ff9800';
+    }
+  })();
+  return <rect {...rest} fill={fillColor} />;
+};
+
 const PropPatternDetection: React.FC<PropPatternDetectionProps> = ({ data }) => {
   const detectPatterns = (): Pattern[] => {
     const patterns: Pattern[] = [];
@@ -111,13 +124,7 @@ const PropPatternDetection: React.FC<PropPatternDetectionProps> = ({ data }) => 
             <Tooltip />
             <Bar 
               dataKey="value"
-              fill={(entry: { type: 'update' | 'value' | 'unused' }) => {
-                switch (entry.type) {
-                  case 'update': return '#ef5350';
-                  case 'value': return '#4caf50';
-                  default: return '#ff9800';
-                }
-              }}
+              shape={<CustomBar />}
             />
           </BarChart>
         </div>

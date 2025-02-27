@@ -1,3 +1,4 @@
+/// <reference types="@testing-library/jest-dom" />
 import '@testing-library/jest-dom';
 
 // Mock ResizeObserver which is not available in JSDOM

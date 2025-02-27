@@ -66,6 +66,17 @@ describe('Module Structure', () => {
   });
 
   describe('Initialization', () => {
+    let originalEnv: string | undefined;
+
+    beforeEach(() => {
+      originalEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'development';
+    });
+
+    afterEach(() => {
+      process.env.NODE_ENV = originalEnv;
+    });
+
     test('should initialize in development mode', () => {
       const mockElement = document.createElement('div');
       const consoleSpy = jest.spyOn(console, 'log');
@@ -79,10 +90,11 @@ describe('Module Structure', () => {
         'Dev tools initialized with config:',
         expect.any(Object)
       );
+
+      consoleSpy.mockRestore();
     });
 
     test('should not initialize in production mode', () => {
-      const originalEnv = process.env.NODE_ENV;
       process.env.NODE_ENV = 'production';
       
       const mockElement = document.createElement('div');
@@ -94,7 +106,7 @@ describe('Module Structure', () => {
 
       expect(consoleSpy).not.toHaveBeenCalled();
       
-      process.env.NODE_ENV = originalEnv;
+      consoleSpy.mockRestore();
     });
   });
 }); 

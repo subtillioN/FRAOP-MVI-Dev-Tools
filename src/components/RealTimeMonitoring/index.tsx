@@ -15,6 +15,17 @@ interface MetricsData {
   memoryUsage: number;
 }
 
+// Declare performance.memory type
+declare global {
+  interface Performance {
+    memory?: {
+      usedJSHeapSize: number;
+      totalJSHeapSize: number;
+      jsHeapSizeLimit: number;
+    };
+  }
+}
+
 const RealTimeMonitoring: React.FC<RealTimeMonitoringProps> = ({ data }) => {
   const [metricsHistory, setMetricsHistory] = useState<MetricsData[]>([]);
   const [alerts, setAlerts] = useState<string[]>([]);

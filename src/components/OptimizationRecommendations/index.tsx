@@ -22,9 +22,6 @@ interface ChartDataEntry {
   impact: 'high' | 'medium' | 'low';
 }
 
-// Add type for fill function
-type FillFunction = (entry: ChartDataEntry) => string;
-
 // Update Bar component to accept fill function
 const CustomBar: React.FC<any> = (props) => {
   const { fill, entry, ...rest } = props;
