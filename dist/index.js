@@ -1,2 +1,60 @@
-"use strict";Object.defineProperty(exports,"__esModule",{value:!0});var e=require("events"),t=require("react"),r=require("recharts"),n=require("d3"),a=require("@mui/material"),o=require("@mui/icons-material/Settings");function i(e){return e&&"object"==typeof e&&"default"in e?e:{default:e}}function s(e){if(e&&e.__esModule)return e;var t=Object.create(null);return e&&Object.keys(e).forEach((function(r){if("default"!==r){var n=Object.getOwnPropertyDescriptor(e,r);Object.defineProperty(t,r,n.get?n:{enumerable:!0,get:function(){return e[r]}})}})),t.default=e,Object.freeze(t)}var l=i(t),c=s(n),u=i(o);class m{constructor(){}static getInstance(){return m.instance||(m.instance=new m),m.instance}analyze(){return{components:[],unusedProps:[],propPatterns:[],frequentUpdates:[]}}}class d extends e.EventEmitter{constructor(e={}){super(),this.isMonitoring=!1,this.metrics={latencies:[],errors:0,totalRequests:0,timestamps:[]},this.eventHistory=[],this.sampleInterval=e.sampleInterval||1e3,this.warningThreshold=e.warningThreshold||1e3,this.errorThreshold=e.errorThreshold||5e3,this.setMaxListeners(100)}static getInstance(e={}){return d.instance||(d.instance=new d(e)),d.instance}start(){this.isMonitoring||(this.isMonitoring=!0,this.emit("monitoring:started"),this.startMonitoring())}stop(){this.isMonitoring&&(this.isMonitoring=!1,this.emit("monitoring:stopped"))}subscribe(e){return this.on("monitoring-event",e),()=>this.unsubscribe(e)}unsubscribe(e){this.off("monitoring-event",e)}startMonitoring(){this.isMonitoring||(this.isMonitoring=!0,this.eventHistory=[])}stopMonitoring(){this.isMonitoring=!1}trackPropUpdate(e,t,r){if(!this.isMonitoring)return;const n={type:"prop-update",componentName:e,timestamp:Date.now(),data:{propName:t,propValue:r}};this.eventHistory.push(n),this.emit("monitoring-event",n)}trackRender(e,t){if(!this.isMonitoring)return;const r={type:"render",componentName:e,timestamp:Date.now(),data:{renderDuration:t}};this.eventHistory.push(r),this.emit("monitoring-event",r)}trackError(e,t){if(!this.isMonitoring)return;const r={type:"error",componentName:e,timestamp:Date.now(),data:{error:t}};this.eventHistory.push(r),this.emit("monitoring-event",r)}trackUpdate(e,t){if(!this.isMonitoring)return;const r={type:"update",componentName:e,timestamp:Date.now(),data:{message:t}};this.eventHistory.push(r),this.emit("monitoring-event",r)}trackWarning(e,t){if(!this.isMonitoring)return;const r={type:"warning",componentName:e,timestamp:Date.now(),data:{message:t}};this.eventHistory.push(r),this.emit("monitoring-event",r)}getEventHistory(){return[...this.eventHistory]}clearEventHistory(){this.eventHistory=[]}collectPerformanceMetrics(){const e=performance.getEntriesByType("measure"),t=e.map((e=>e.duration)),r=e.filter((e=>e.duration>this.errorThreshold)).length,n=e.length;return{latencies:t,errors:r,totalRequests:n,timestamps:this.metrics.timestamps,averageLatency:t.reduce(((e,t)=>e+t),0)/t.length,errorRate:r/n,throughput:n/(this.sampleInterval/1e3)}}checkViolations(e){const t=e.averageLatency||0;t>this.errorThreshold?this.emit("monitoring:violation",{type:"error",message:`Average latency (${t}ms) exceeds error threshold (${this.errorThreshold}ms)`}):t>this.warningThreshold&&this.emit("monitoring:violation",{type:"warning",message:`Average latency (${t}ms) exceeds warning threshold (${this.warningThreshold}ms)`})}}var p={container:"base-module_container__N-VTj","node-component":"base-module_node-component__3R2-B","node-prop":"base-module_node-prop__6bpoO","link-dependency":"base-module_link-dependency__t58B6","link-update":"base-module_link-update__fj1Pw",chartContainer:"base-module_chartContainer__lcs0d",tooltip:"base-module_tooltip__c9I89",performanceHigh:"base-module_performanceHigh__Hnxwi",performanceMedium:"base-module_performanceMedium__jYlB7",performanceLow:"base-module_performanceLow__RWfP-",section:"base-module_section__l0hua","section-title":"base-module_section-title__GYBoP","section-content":"base-module_section-content__s8HOk",button:"base-module_button__yooH5",buttonActive:"base-module_buttonActive__yBKXk",dataGrid:"base-module_dataGrid__cMCBW",dataItem:"base-module_dataItem__S-ukG",dataLabel:"base-module_dataLabel__-otSE",dataValue:"base-module_dataValue__wYuSW"};exports.ComponentRelationship=({data:e})=>{const r=t.useRef(null),n=t.useRef(),a=t.useCallback((()=>{r.current&&n.current&&c.select(r.current).transition().duration(750).call(n.current.transform,c.zoomIdentity)}),[]);return t.useEffect((()=>{if(!r.current)return;c.select(r.current).selectAll("*").remove();const t=e.components.map((e=>({id:e.componentName,group:1}))),a=e.propPatterns.flatMap((e=>"dependent"!==e.type?[]:e.components.flatMap((t=>e.components.filter((e=>e!==t)).map((e=>({source:t,target:e,value:1}))))))),o=c.select(r.current).attr("width",800).attr("height",600),i=c.zoom().scaleExtent([.1,4]).on("zoom",(e=>{o.selectAll("g").attr("transform",e.transform.toString())}));n.current=i,o.call(i);const s=c.forceSimulation(t).force("link",c.forceLink(a).id((e=>e.id))).force("charge",c.forceManyBody()).force("center",c.forceCenter(400,300)),l=o.append("g").selectAll("line").data(a).join("line").attr("stroke","#999").attr("stroke-opacity",.6).attr("stroke-width",(e=>Math.sqrt(e.value))),u=o.append("g").selectAll("circle").data(t).join("circle").attr("r",5).attr("fill","#69b3a2").call(c.drag().on("start",(function(e){e.active||s.alphaTarget(.3).restart();e.subject.fx=e.subject.x,e.subject.fy=e.subject.y})).on("drag",(function(e){e.subject.fx=e.x,e.subject.fy=e.y})).on("end",(function(e){e.active||s.alphaTarget(0);e.subject.fx=null,e.subject.fy=null})));return u.append("title").text((e=>e.id)),s.on("tick",(()=>{l.attr("x1",(e=>{var t;return null!==(t=e.source.x)&&void 0!==t?t:0})).attr("y1",(e=>{var t;return null!==(t=e.source.y)&&void 0!==t?t:0})).attr("x2",(e=>{var t;return null!==(t=e.target.x)&&void 0!==t?t:0})).attr("y2",(e=>{var t;return null!==(t=e.target.y)&&void 0!==t?t:0})),u.attr("cx",(e=>{var t;return null!==(t=e.x)&&void 0!==t?t:0})).attr("cy",(e=>{var t;return null!==(t=e.y)&&void 0!==t?t:0}))})),()=>{s.stop()}}),[e]),l.default.createElement("div",{className:p["component-relationship"]},l.default.createElement("h3",null,"Component Relationships"),l.default.createElement("div",{className:p["relationship-controls"]},l.default.createElement("button",{className:p.button,onClick:a},"Reset View")),l.default.createElement("div",{className:p["relationship-legend"]},l.default.createElement("div",{className:p["legend-item"]},l.default.createElement("span",{className:p["legend-color"],style:{backgroundColor:"#4caf50"}}),l.default.createElement("span",null,"Component")),l.default.createElement("div",{className:p["legend-item"]},l.default.createElement("span",{className:p["legend-color"],style:{backgroundColor:"#2196f3"}}),l.default.createElement("span",null,"Prop"))),l.default.createElement("svg",{ref:r,width:800,height:600,className:p["relationship-svg"]}))},exports.DevToolsButton=function({onClick:e,tooltipPlacement:t="bottom",tooltipTitle:r="Developer Tools - Task & Feature Analysis"}){return l.default.createElement(a.Tooltip,{title:r,arrow:!0,placement:t},l.default.createElement(a.IconButton,{"aria-label":"Developer Tools",color:"primary",onClick:e,sx:{backgroundColor:"rgba(0, 0, 0, 0.4)","&:hover":{backgroundColor:"rgba(59, 130, 246, 0.2)",boxShadow:"0 0 12px rgba(59, 130, 246, 0.3)"},boxShadow:"0 0 8px rgba(59, 130, 246, 0.2)"}},l.default.createElement(u.default,null)))},exports.MonitoringService=d,exports.PropAnalyzer=m,exports.PropTimeline=({data:e})=>{const t=e.components.flatMap((e=>e.props.map((t=>({name:`${e.componentName}.${t.name}`,time:t.timestamps[t.timestamps.length-1]||0,value:t.lastValue,updates:t.valueChanges||0})))));return l.default.createElement("div",{style:{width:"100%",height:400}},l.default.createElement(r.ResponsiveContainer,null,l.default.createElement(r.LineChart,{data:t},l.default.createElement(r.CartesianGrid,{strokeDasharray:"3 3"}),l.default.createElement(r.XAxis,{dataKey:"time"}),l.default.createElement(r.YAxis,null),l.default.createElement(r.Tooltip,null),l.default.createElement(r.Line,{type:"monotone",dataKey:"updates",stroke:"#8884d8"}))))};
+// Core exports
+export { initDevTools } from './core/init';
+// Service exports
+export * from './services/monitoring/MonitoringService';
+// Component exports
+export { default as DevToolsButton } from './components/DevToolsButton';
+export { default as DevToolsPanel } from './components/DevToolsPanel';
+export { default as MonitoringDashboard } from './components/MonitoringDashboard';
+export { default as OptimizationRecommendations } from './components/OptimizationRecommendations';
+export { default as RenderImpactAnalysis } from './components/RenderImpactAnalysis';
+export { default as PropPatternDetection } from './components/PropPatternDetection';
+export { default as PropValueHistory } from './components/PropValueHistory';
+export { default as PropTimeline } from './components/PropTimeline';
+export { default as PerformanceImpact } from './components/PerformanceImpact';
+export { default as RealTimeMonitoring } from './components/RealTimeMonitoring';
+// Demo exports
+export { default as Demo } from './demo/Demo';
+// Components
+export * from './components/DevTools/RealTimeMonitoring';
+export * from './components/DevTools/OptimizationRecommendations';
+export * from './components/DevTools/RenderImpactAnalysis';
+export * from './components/DevTools/MemoizationSuggestions';
+export * from './components/DevTools/PropPatternDetection';
+export * from './components/DevTools/MonitoringDashboard';
+export * from './components/DevTools/PerformanceImpact';
+export * from './components/DevTools/ComponentRelationship';
+export * from './components/DevTools/PropValueHistory';
+export * from './components/DevTools/PropTimeline';
+export * from './components/MonitoringDashboard';
+// Core utilities
+export * from './utils/option';
+// Validation utilities
+export * from './aspects/functional';
+// Scripts
+export { default as validateFunctional } from './scripts/validate-functional';
+export { default as validateModuleBoundaries } from './scripts/validate-module-boundaries';
+export { default as ttsdWatch } from './scripts/ttsd-watch';
+// CLI commands
+export const cli = {
+    validate: async (type) => {
+        switch (type) {
+            case 'functional':
+                await import('./scripts/validate-functional').then(m => m.default());
+                break;
+            case 'modules':
+                await import('./scripts/validate-module-boundaries').then(m => m.default());
+                break;
+            case 'all':
+                await Promise.all([
+                    import('./scripts/validate-functional').then(m => m.default()),
+                    import('./scripts/validate-module-boundaries').then(m => m.default())
+                ]);
+                break;
+        }
+    },
+    ttsdWatch: async () => {
+        await import('./scripts/ttsd-watch').then(m => m.default());
+    }
+};
 //# sourceMappingURL=index.js.map

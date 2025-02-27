@@ -34,4 +34,39 @@ export * from './components/DevTools/PerformanceImpact';
 export * from './components/DevTools/ComponentRelationship';
 export * from './components/DevTools/PropValueHistory';
 export * from './components/DevTools/PropTimeline';
-export * from './components/MonitoringDashboard'; 
+export * from './components/MonitoringDashboard';
+
+// Core utilities
+export * from './utils/option';
+
+// Validation utilities
+export * from './aspects/functional';
+export type * from './types/functional';
+
+// Scripts
+export { default as validateFunctional } from './scripts/validate-functional';
+export { default as validateModuleBoundaries } from './scripts/validate-module-boundaries';
+export { default as ttsdWatch } from './scripts/ttsd-watch';
+
+// CLI commands
+export const cli = {
+  validate: async (type: 'functional' | 'modules' | 'all') => {
+    switch (type) {
+      case 'functional':
+        await import('./scripts/validate-functional').then(m => m.default());
+        break;
+      case 'modules':
+        await import('./scripts/validate-module-boundaries').then(m => m.default());
+        break;
+      case 'all':
+        await Promise.all([
+          import('./scripts/validate-functional').then(m => m.default()),
+          import('./scripts/validate-module-boundaries').then(m => m.default())
+        ]);
+        break;
+    }
+  },
+  ttsdWatch: async () => {
+    await import('./scripts/ttsd-watch').then(m => m.default());
+  }
+}; 

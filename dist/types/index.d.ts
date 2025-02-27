@@ -1,13 +1,36 @@
-export interface DevToolsConfig {
-    target: HTMLElement;
-    features?: Array<'monitoring' | 'optimization' | 'analysis' | 'patterns' | 'timeline' | 'performance'>;
-    theme?: 'light' | 'dark';
-    plugins?: Array<{
-        name: string;
-        init?: () => void;
-    }>;
-    position?: {
-        x: number;
-        y: number;
-    };
-}
+export { initDevTools } from './core/init';
+export { DevToolsConfig } from './types';
+export * from './services/monitoring/MonitoringService';
+export type { PropAnalysisResult, PropUsage } from './types';
+export { default as DevToolsButton } from './components/DevToolsButton';
+export { default as DevToolsPanel } from './components/DevToolsPanel';
+export { default as MonitoringDashboard } from './components/MonitoringDashboard';
+export { default as OptimizationRecommendations } from './components/OptimizationRecommendations';
+export { default as RenderImpactAnalysis } from './components/RenderImpactAnalysis';
+export { default as PropPatternDetection } from './components/PropPatternDetection';
+export { default as PropValueHistory } from './components/PropValueHistory';
+export { default as PropTimeline } from './components/PropTimeline';
+export { default as PerformanceImpact } from './components/PerformanceImpact';
+export { default as RealTimeMonitoring } from './components/RealTimeMonitoring';
+export { default as Demo } from './demo/Demo';
+export * from './components/DevTools/RealTimeMonitoring';
+export * from './components/DevTools/OptimizationRecommendations';
+export * from './components/DevTools/RenderImpactAnalysis';
+export * from './components/DevTools/MemoizationSuggestions';
+export * from './components/DevTools/PropPatternDetection';
+export * from './components/DevTools/MonitoringDashboard';
+export * from './components/DevTools/PerformanceImpact';
+export * from './components/DevTools/ComponentRelationship';
+export * from './components/DevTools/PropValueHistory';
+export * from './components/DevTools/PropTimeline';
+export * from './components/MonitoringDashboard';
+export * from './utils/option';
+export * from './aspects/functional';
+export type * from './types/functional';
+export { default as validateFunctional } from './scripts/validate-functional';
+export { default as validateModuleBoundaries } from './scripts/validate-module-boundaries';
+export { default as ttsdWatch } from './scripts/ttsd-watch';
+export declare const cli: {
+    validate: (type: "functional" | "modules" | "all") => Promise<void>;
+    ttsdWatch: () => Promise<void>;
+};
