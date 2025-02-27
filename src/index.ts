@@ -1,8 +1,20 @@
-// Core
-export * from './core/PropAnalyzer';
+// Core exports
+export * from './core/analysis/PropAnalyzer';
+export * from './core/performance/PerformanceBenchmark';
 
-// Services
-export * from './services/MonitoringService';
+// Service exports
+export * from './services/monitoring/MonitoringService';
+
+// Type exports
+export * from './utils/analysis/types';
+
+// Component exports
+export * from './components/analysis';
+export { default as DevToolsButton } from './components/DevToolsButton';
+export { default as DevToolsPanel } from './components/DevToolsPanel';
+
+// Demo exports
+export { default as Demo } from './demo/Demo';
 
 // Components
 export * from './components/DevTools/RealTimeMonitoring';
@@ -15,8 +27,4 @@ export * from './components/DevTools/PerformanceImpact';
 export * from './components/DevTools/ComponentRelationship';
 export * from './components/DevTools/PropValueHistory';
 export * from './components/DevTools/PropTimeline';
-export * from './components/MonitoringDashboard';
-export * from './components/DevToolsButton';
-
-// Demo
-export * from './demo/Demo'; 
+export * from './components/MonitoringDashboard'; 

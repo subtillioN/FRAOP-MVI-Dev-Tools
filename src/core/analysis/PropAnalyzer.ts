@@ -1,55 +1,18 @@
-import { ComponentType } from 'react';
+import { PropAnalysisResult, PropUsage, Pattern, FrequentUpdate } from '../../utils/analysis/types';
 
-export interface PropUsage {
-  componentName: string;
-  propName: string;
-  type: string;
-  required: boolean;
-  usageCount: number;
-  valueChanges: number;
-  lastValue: PropValue;
-  valueHistory: PropValue[];
-  timestamps: number[];
-  relatedProps?: string[];
-}
-
-export interface PropValue {
-  value: any;
-  timestamp: number;
-  renderCount: number;
-}
-
-export interface Pattern {
-  id: string;
-  description: string;
-  components: string[];
-  props: string[];
-  confidence: number;
-}
-
-export interface FrequentUpdate {
-  componentName: string;
-  propName: string;
-  updateCount: number;
-  averageInterval: number;
-}
-
-export interface PropAnalysisResult {
-  components: {
-    componentName: string;
-    props: PropUsage[];
-  }[];
-  unusedProps: PropUsage[];
-  propPatterns: Pattern[];
-  frequentUpdates: FrequentUpdate[];
-  timestamp: number;
+interface ComponentWithPropTypes {
+  propTypes?: {
+    [key: string]: {
+      isRequired?: boolean;
+    };
+  };
 }
 
 export class PropAnalyzer {
   private componentCache: Map<string, PropUsage[]> = new Map();
   private currentTime: number = Date.now();
 
-  trackPropUsage(component: ComponentType<any>, props: Record<string, any>, componentName: string): void {
+  trackPropUsage(component: ComponentWithPropTypes, props: Record<string, any>, componentName: string): void {
     let componentProps = this.componentCache.get(componentName);
     if (!componentProps) {
       componentProps = [];
@@ -63,7 +26,7 @@ export class PropAnalyzer {
           componentName,
           propName,
           type: typeof value,
-          required: (component as any).propTypes?.[propName]?.isRequired ?? false,
+          required: component.propTypes?.[propName]?.isRequired ?? false,
           usageCount: 0,
           valueChanges: 0,
           lastValue: { value, timestamp: this.currentTime, renderCount: 1 },
@@ -108,7 +71,6 @@ export class PropAnalyzer {
 
   private detectPatterns(components: { componentName: string; props: PropUsage[] }[]): Pattern[] {
     const patterns: Pattern[] = [];
-    // Pattern detection logic
     components.forEach((component, i) => {
       components.slice(i + 1).forEach(otherComponent => {
         const sharedProps = component.props.filter(prop =>

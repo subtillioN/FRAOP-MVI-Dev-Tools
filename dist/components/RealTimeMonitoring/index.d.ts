@@ -1,16 +1,9 @@
 import React from 'react';
-import { PropAnalysisResult } from '../../core/PropAnalyzer';
-interface RealTimeMonitoringProps {
-    data: PropAnalysisResult;
+import { PropAnalysisResult } from '../../utils/propAnalysis';
+import { MonitoringService } from '../../services/MonitoringService';
+interface Props {
+    monitoringService: MonitoringService;
+    data?: PropAnalysisResult;
 }
-declare global {
-    interface Performance {
-        memory?: {
-            usedJSHeapSize: number;
-            totalJSHeapSize: number;
-            jsHeapSizeLimit: number;
-        };
-    }
-}
-declare const RealTimeMonitoring: React.FC<RealTimeMonitoringProps>;
+declare const RealTimeMonitoring: React.FC<Props>;
 export default RealTimeMonitoring;

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import styles from '../../styles/base.module.css';
-import { PropAnalysisResult } from '../../core/PropAnalyzer';
+import { PropAnalysisResult } from '../../utils/propAnalysis';
 import { MonitoringService } from '../../services/MonitoringService';
 
 interface MonitoringEvent {
@@ -17,70 +17,76 @@ interface MonitoringEvent {
   };
 }
 
-interface RealTimeMonitoringProps {
-  data: PropAnalysisResult;
-}
-
 interface MetricsData {
   timestamp: number;
   renderCount: number;
-  propUpdateCount: number;
-  memoryUsage: number;
-}
-
-// Declare performance.memory type
-declare global {
-  interface Performance {
-    memory?: {
-      usedJSHeapSize: number;
-      totalJSHeapSize: number;
-      jsHeapSizeLimit: number;
-    };
-  }
+  averageRenderTime: number;
+  totalComponents: number;
 }
 
 interface Props {
   monitoringService: MonitoringService;
+  data?: PropAnalysisResult;
 }
 
-const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
-  const [metricsHistory, setMetricsHistory] = useState<MetricsData[]>([]);
-  const [alerts, setAlerts] = useState<string[]>([]);
+const RealTimeMonitoring: React.FC<Props> = ({ monitoringService, data }) => {
   const [events, setEvents] = useState<MonitoringEvent[]>([]);
+  const [alerts, setAlerts] = useState<string[]>([]);
+  const [metrics, setMetrics] = useState<MetricsData[]>([]);
 
   useEffect(() => {
     const unsubscribe = monitoringService.subscribe((event: MonitoringEvent) => {
       if (event.type === 'update') {
-        const analysis = event.data as PropAnalysisResult;
-        const newMetrics = {
-          timestamp: Date.now(),
-          renderCount: analysis.components.reduce((sum, c) => 
-            sum + c.props.reduce((p, prop) => p + (prop.usageCount || 0), 0), 0
-          ),
-          propUpdateCount: analysis.components.reduce((sum, c) => 
-            sum + c.props.reduce((p, prop) => p + (prop.valueChanges || 0), 0), 0
-          ),
-          memoryUsage: performance.memory?.usedJSHeapSize || 0
-        };
-
-        setMetricsHistory(prev => {
-          const newHistory = [...prev, newMetrics];
-          // Keep last 60 data points (1 minute at 1s interval)
-          return newHistory.slice(-60);
-        });
+        setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
       } else if (event.type === 'warning' && event.data?.message) {
         const message = event.data.message;
         if (message) {
           setAlerts(prev => [...prev, message]);
         }
       }
-      setEvents(prevEvents => [...prevEvents, event].slice(-100)); // Keep last 100 events
+
+      // Update metrics
+      if (event.type === 'render' && event.data?.renderDuration !== undefined) {
+        const renderDuration = event.data.renderDuration;
+        setMetrics(prevMetrics => {
+          const newMetric: MetricsData = {
+            timestamp: event.timestamp,
+            renderCount: 1,
+            averageRenderTime: renderDuration,
+            totalComponents: 1
+          };
+
+          const newMetrics = [...prevMetrics, newMetric].slice(-60); // Keep last 60 data points
+          return newMetrics;
+        });
+      }
     });
 
     return () => {
       unsubscribe();
     };
   }, [monitoringService]);
+
+  useEffect(() => {
+    if (data) {
+      const totalRenderCount = data.components.reduce((sum: number, c) => sum + c.renderCount, 0);
+      const totalComponents = data.components.length;
+
+      if (totalComponents > 0) {
+        setMetrics(prevMetrics => {
+          const newMetric: MetricsData = {
+            timestamp: Date.now(),
+            renderCount: totalRenderCount,
+            averageRenderTime: totalRenderCount / totalComponents,
+            totalComponents
+          };
+
+          const newMetrics = [...prevMetrics, newMetric].slice(-60);
+          return newMetrics;
+        });
+      }
+    }
+  }, [data]);
 
   const renderEventDetails = (event: MonitoringEvent) => {
     switch (event.type) {
@@ -120,6 +126,12 @@ const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
     }
   };
 
+  const calculateAverageRenderTime = () => {
+    if (metrics.length === 0) return 0;
+    const sum = metrics.reduce((acc: number, metric: MetricsData) => acc + metric.averageRenderTime, 0);
+    return Math.round(sum / metrics.length);
+  };
+
   return (
     <div className={styles.container}>
       <h2>Real-time Monitoring</h2>
@@ -127,7 +139,7 @@ const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
       <div className={styles.section}>
         <h3>Performance Metrics</h3>
         <div className={styles['chart-container']}>
-          <LineChart width={800} height={400} data={metricsHistory}>
+          <LineChart width={800} height={400} data={metrics}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis 
               dataKey="timestamp" 
@@ -145,15 +157,15 @@ const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
             />
             <Line 
               type="monotone" 
-              dataKey="propUpdateCount" 
+              dataKey="averageRenderTime" 
               stroke="#82ca9d" 
-              name="Prop Updates" 
+              name="Average Render Time (ms)" 
             />
             <Line 
               type="monotone" 
-              dataKey="memoryUsage" 
+              dataKey="totalComponents" 
               stroke="#ff7300" 
-              name="Memory Usage (bytes)" 
+              name="Total Components" 
             />
           </LineChart>
         </div>
@@ -164,26 +176,17 @@ const RealTimeMonitoring: React.FC<Props> = ({ monitoringService }) => {
         <div className={styles['data-grid']}>
           <div className={styles['data-item']}>
             <div className={styles['data-label']}>Total Components</div>
-            <div className={styles['data-value']}>{data.components.length}</div>
+            <div className={styles['data-value']}>{data?.components.length}</div>
           </div>
           <div className={styles['data-item']}>
             <div className={styles['data-label']}>Total Props</div>
             <div className={styles['data-value']}>
-              {data.components.reduce((sum, c) => sum + c.props.length, 0)}
+              {data?.components.reduce((sum, c) => sum + c.props.length, 0)}
             </div>
           </div>
           <div className={styles['data-item']}>
-            <div className={styles['data-label']}>Update Rate</div>
-            <div className={styles['data-value']}>
-              {metricsHistory.length > 1 
-                ? Math.round(
-                    (metricsHistory[metricsHistory.length - 1].propUpdateCount - 
-                     metricsHistory[metricsHistory.length - 2].propUpdateCount) / 
-                    ((metricsHistory[metricsHistory.length - 1].timestamp - 
-                      metricsHistory[metricsHistory.length - 2].timestamp) / 1000)
-                  ) 
-                : 0} updates/s
-            </div>
+            <div className={styles['data-label']}>Average Render Time</div>
+            <div className={styles['data-value']}>{calculateAverageRenderTime()}ms</div>
           </div>
         </div>
       </div>

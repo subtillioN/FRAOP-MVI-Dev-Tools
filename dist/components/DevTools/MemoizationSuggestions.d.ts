@@ -1,7 +1,7 @@
 import React from 'react';
 import { PropAnalysisResult } from '../../utils/propAnalysis';
-interface MemoizationSuggestionsProps {
+interface Props {
     data: PropAnalysisResult;
 }
-declare const MemoizationSuggestions: React.FC<MemoizationSuggestionsProps>;
+declare const MemoizationSuggestions: React.FC<Props>;
 export default MemoizationSuggestions;

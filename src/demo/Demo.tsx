@@ -6,48 +6,134 @@ import {
   RealTimeMonitoring,
   PerformanceImpact,
   OptimizationRecommendations
-} from '../components';
-import { PropAnalysisResult, PropPattern, PropUsage } from '../core/PropAnalyzer';
+} from '../components/analysis';
+import { PropAnalysisResult, Pattern as PropPattern, PropUsage, PropValue } from '../utils/analysis/types';
+import { MonitoringService } from '../services/monitoring/MonitoringService';
 import styles from '../styles/base.module.css';
+
+const mockPropValue: PropValue = {
+  value: null,
+  timestamp: Date.now(),
+  renderCount: 0
+};
 
 const mockData: PropAnalysisResult = {
   components: [
     {
       componentName: 'UserProfile',
       props: [
-        { name: 'userId', type: 'string', valueChanges: 5, usageCount: 10 },
-        { name: 'userData', type: 'object', valueChanges: 15, usageCount: 10 }
+        {
+          componentName: 'UserProfile',
+          propName: 'userId',
+          type: 'string',
+          required: false,
+          usageCount: 10,
+          valueChanges: 5,
+          lastValue: mockPropValue,
+          valueHistory: [],
+          timestamps: []
+        },
+        {
+          componentName: 'UserProfile',
+          propName: 'userData',
+          type: 'object',
+          required: false,
+          usageCount: 10,
+          valueChanges: 15,
+          lastValue: mockPropValue,
+          valueHistory: [],
+          timestamps: []
+        }
       ]
     },
     {
       componentName: 'Dashboard',
       props: [
-        { name: 'data', type: 'array', valueChanges: 20, usageCount: 10 },
-        { name: 'loading', type: 'boolean', valueChanges: 8, usageCount: 10 }
+        {
+          componentName: 'Dashboard',
+          propName: 'data',
+          type: 'array',
+          required: false,
+          usageCount: 10,
+          valueChanges: 20,
+          lastValue: mockPropValue,
+          valueHistory: [],
+          timestamps: []
+        },
+        {
+          componentName: 'Dashboard',
+          propName: 'loading',
+          type: 'boolean',
+          required: false,
+          usageCount: 10,
+          valueChanges: 8,
+          lastValue: mockPropValue,
+          valueHistory: [],
+          timestamps: []
+        }
       ]
     }
   ],
   unusedProps: [
-    { componentName: 'UserProfile', propName: 'theme' },
-    { componentName: 'Dashboard', propName: 'debug' }
+    {
+      componentName: 'UserProfile',
+      propName: 'theme',
+      type: 'string',
+      required: false,
+      usageCount: 0,
+      valueChanges: 0,
+      lastValue: mockPropValue,
+      valueHistory: [],
+      timestamps: []
+    },
+    {
+      componentName: 'Dashboard',
+      propName: 'debug',
+      type: 'boolean',
+      required: false,
+      usageCount: 0,
+      valueChanges: 0,
+      lastValue: mockPropValue,
+      valueHistory: [],
+      timestamps: []
+    }
   ],
   propPatterns: [
-    { type: 'update', frequency: 0.8 } as PropPattern,
-    { type: 'value', frequency: 0.5 } as PropPattern
+    {
+      id: 'pattern1',
+      description: 'Frequent updates pattern',
+      components: ['UserProfile', 'Dashboard'],
+      props: ['userId', 'data'],
+      confidence: 0.8
+    },
+    {
+      id: 'pattern2',
+      description: 'Value pattern',
+      components: ['UserProfile', 'Dashboard'],
+      props: ['userData', 'loading'],
+      confidence: 0.5
+    }
   ],
   frequentUpdates: [
-    { componentName: 'Dashboard', propName: 'data' }
-  ]
+    {
+      componentName: 'Dashboard',
+      propName: 'data',
+      updateCount: 20,
+      averageInterval: 1000
+    }
+  ],
+  timestamp: Date.now()
 };
 
 const Demo: React.FC = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
-  const [data, setData] = useState(mockData);
+  const [data, setData] = useState<PropAnalysisResult>(mockData);
+  const monitoringService = MonitoringService.getInstance();
 
   // Simulate real-time updates
   useEffect(() => {
     const interval = setInterval(() => {
-      setData(prev => ({
+      setData((prev: PropAnalysisResult) => ({
         ...prev,
         components: prev.components.map(component => ({
           ...component,
@@ -72,7 +158,7 @@ const Demo: React.FC = () => {
       case 'timeline':
         return <PropTimeline data={data} />;
       case 'realtime':
-        return <RealTimeMonitoring data={data} />;
+        return <RealTimeMonitoring data={data} monitoringService={monitoringService} />;
       case 'impact':
         return <PerformanceImpact data={data} />;
       case 'optimization':
