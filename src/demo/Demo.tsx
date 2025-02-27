@@ -6,13 +6,9 @@ import {
   RealTimeMonitoring,
   PerformanceImpact,
   OptimizationRecommendations
-} from '../../components';
-import { PropAnalysisResult, PropPattern, PropUsage } from '../../core/PropAnalyzer';
-import styles from '../../styles/base.module.css';
-
-interface DevToolsPanelProps {
-  isOpen: boolean;
-}
+} from '../components';
+import { PropAnalysisResult, PropPattern, PropUsage } from '../core/PropAnalyzer';
+import styles from '../styles/base.module.css';
 
 const mockData: PropAnalysisResult = {
   components: [
@@ -44,16 +40,14 @@ const mockData: PropAnalysisResult = {
   ]
 };
 
-const DevToolsPanel: React.FC<DevToolsPanelProps> = ({ isOpen }) => {
+const Demo: React.FC = () => {
   const [activeTab, setActiveTab] = useState('monitoring');
-  const [data, setData] = useState<PropAnalysisResult>(mockData);
+  const [data, setData] = useState(mockData);
 
   // Simulate real-time updates
   useEffect(() => {
-    if (!isOpen) return;
-
     const interval = setInterval(() => {
-      setData((prev: PropAnalysisResult) => ({
+      setData(prev => ({
         ...prev,
         components: prev.components.map(component => ({
           ...component,
@@ -67,7 +61,7 @@ const DevToolsPanel: React.FC<DevToolsPanelProps> = ({ isOpen }) => {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [isOpen]);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -88,25 +82,9 @@ const DevToolsPanel: React.FC<DevToolsPanelProps> = ({ isOpen }) => {
     }
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div
-      className={styles.container}
-      style={{
-        position: 'fixed',
-        top: 0,
-        right: 0,
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'white',
-        zIndex: 999,
-        overflow: 'auto',
-        padding: '20px',
-        boxSizing: 'border-box'
-      }}
-    >
-      <h1>FRAOP MVI Dev Tools</h1>
+    <div className={styles.container}>
+      <h1>FRAOP MVI Dev Tools Demo</h1>
       
       <div style={{ marginBottom: '20px' }}>
         <button
@@ -154,4 +132,4 @@ const DevToolsPanel: React.FC<DevToolsPanelProps> = ({ isOpen }) => {
   );
 };
 
-export default DevToolsPanel; 
+export default Demo; 

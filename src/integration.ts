@@ -1,60 +1,162 @@
-import { MonitoringService } from './services/MonitoringService';
-import { DevToolsConfig } from './types';
+import { PropAnalysisResult } from '../utils/propAnalysis';
 
-export function initDevTools(config: DevToolsConfig): void {
-  if (process.env.NODE_ENV !== 'development') {
-    return;
+interface DevToolsHook {
+  emit: (event: string, data: any) => void;
+  on: (event: string, callback: (data: any) => void) => void;
+  supportsFiber: boolean;
+  // Add other relevant DevTools hook properties as needed
+}
+
+declare global {
+  interface Window {
+    __REACT_DEVTOOLS_GLOBAL_HOOK__?: DevToolsHook;
+  }
+}
+
+export class DevToolsIntegration {
+  private static instance: DevToolsIntegration;
+  private isInitialized: boolean = false;
+  private analysisUpdateInterval: number | null = null;
+
+  private constructor() {}
+
+  static getInstance(): DevToolsIntegration {
+    if (!DevToolsIntegration.instance) {
+      DevToolsIntegration.instance = new DevToolsIntegration();
+    }
+    return DevToolsIntegration.instance;
   }
 
-  const {
-    target,
-    features = ['monitoring', 'optimization', 'analysis'],
-    theme = 'light',
-    position = { x: 0, y: 0 }
-  } = config;
+  initialize() {
+    if (this.isInitialized) return;
 
-  // Initialize monitoring service
-  const monitoringService = MonitoringService.getInstance();
-  monitoringService.startMonitoring();
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) {
+      console.warn('React DevTools not detected. Some features may be limited.');
+      return;
+    }
 
-  // Create container
-  const container = document.createElement('div');
-  container.id = 'fraop-dev-tools';
-  container.style.position = 'fixed';
-  container.style.top = `${position.y}px`;
-  container.style.right = `${position.x}px`;
-  container.style.zIndex = '9999';
-  container.style.backgroundColor = theme === 'dark' ? '#1e1e1e' : '#ffffff';
-  container.style.boxShadow = '0 0 10px rgba(0,0,0,0.1)';
-  container.style.borderRadius = '4px';
-  container.style.padding = '16px';
-  container.style.width = '400px';
-  container.style.height = '600px';
-  container.style.overflow = 'auto';
+    // Register custom DevTools panel
+    this.registerDevToolsPanel();
 
-  // Add theme class
-  container.classList.add(`fraop-theme-${theme}`);
+    // Listen for component mount/unmount events
+    devTools.on('mount', this.handleComponentMount);
+    devTools.on('unmount', this.handleComponentUnmount);
 
-  // Initialize features
-  if (features.includes('monitoring')) {
-    const dashboard = document.createElement('div');
-    dashboard.id = 'fraop-monitoring-dashboard';
-    container.appendChild(dashboard);
+    // Start periodic analysis updates
+    this.startAnalysisUpdates();
+
+    this.isInitialized = true;
   }
 
-  // Mount container
-  target.appendChild(container);
+  private registerDevToolsPanel() {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
 
-  // Initialize plugins
-  if (config.plugins) {
-    config.plugins.forEach(plugin => {
-      try {
-        plugin.init?.();
-      } catch (error) {
-        console.error(`Failed to initialize plugin: ${plugin.name}`, error);
-      }
+    // Register custom panel
+    devTools.emit('register-panel', {
+      id: 'prop-analysis',
+      title: 'Prop Analysis',
+      icon: 'data:image/svg+xml,...', // TODO: Add panel icon
     });
   }
 
-  console.log('Dev tools initialized with config:', config);
-} 
+  private handleComponentMount = (component: any) => {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Emit component registration
+    devTools.emit('prop-tracking:component-mounted', {
+      componentName: component.name || 'Anonymous',
+      componentId: component._debugID,
+      props: component.props,
+    });
+  };
+
+  private handleComponentUnmount = (component: any) => {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Emit component unregistration
+    devTools.emit('prop-tracking:component-unmounted', {
+      componentId: component._debugID,
+    });
+  };
+
+  updateAnalysis(analysis: PropAnalysisResult) {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Emit analysis update
+    devTools.emit('prop-tracking:analysis-update', {
+      timestamp: Date.now(),
+      analysis,
+    });
+  }
+
+  private startAnalysisUpdates() {
+    if (this.analysisUpdateInterval) return;
+
+    // Update analysis every 2 seconds
+    this.analysisUpdateInterval = window.setInterval(() => {
+      const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+      if (!devTools) return;
+
+      // Emit heartbeat to keep connection alive
+      devTools.emit('prop-tracking:heartbeat', {
+        timestamp: Date.now(),
+      });
+    }, 2000);
+  }
+
+  addInspectedComponent(componentId: string) {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Add component to inspection list
+    devTools.emit('prop-tracking:inspect-component', {
+      componentId,
+      timestamp: Date.now(),
+    });
+  }
+
+  removeInspectedComponent(componentId: string) {
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Remove component from inspection list
+    devTools.emit('prop-tracking:uninspect-component', {
+      componentId,
+      timestamp: Date.now(),
+    });
+  }
+
+  getInspectedComponents(): string[] {
+    // Return list of currently inspected component IDs
+    // This would be maintained by listening to DevTools events
+    return [];
+  }
+
+  cleanup() {
+    if (this.analysisUpdateInterval) {
+      window.clearInterval(this.analysisUpdateInterval);
+      this.analysisUpdateInterval = null;
+    }
+
+    const devTools = window.__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (!devTools) return;
+
+    // Unregister event listeners
+    devTools.emit('prop-tracking:cleanup', {
+      timestamp: Date.now(),
+    });
+
+    this.isInitialized = false;
+  }
+}
+
+export const initializeDevToolsIntegration = () => {
+  const integration = DevToolsIntegration.getInstance();
+  integration.initialize();
+  return integration;
+}; 

@@ -1,4 +1,4 @@
-import { PropAnalyzer, PropAnalysisResult } from '../core/PropAnalyzer';
+import { PropAnalysisResult } from '../core/PropAnalyzer';
 
 export type MonitoringEventType = 'metrics' | 'alert' | 'violation';
 
@@ -8,18 +8,37 @@ export interface MonitoringEvent {
   data: any;
 }
 
+export interface MonitoringConfig {
+  sampleInterval: number; // milliseconds
+  retentionPeriod: number; // milliseconds
+  alertThresholds: {
+    analysisTime: number;
+    memoryUsage: number;
+    updateFrequency: number;
+  };
+}
+
 type EventCallback = (event: MonitoringEvent) => void;
 
 export class MonitoringService {
   private static instance: MonitoringService;
   private listeners: EventCallback[] = [];
   private isMonitoring: boolean = false;
+  private metrics: MonitoringEvent[] = [];
   private monitoringInterval: number | null = null;
-  private analyzer: PropAnalyzer;
+  private lastAnalysisResult: PropAnalysisResult | null = null;
 
-  private constructor() {
-    this.analyzer = PropAnalyzer.getInstance();
-  }
+  private readonly defaultConfig: MonitoringConfig = {
+    sampleInterval: 1000, // 1 second
+    retentionPeriod: 24 * 60 * 60 * 1000, // 24 hours
+    alertThresholds: {
+      analysisTime: 150, // ms
+      memoryUsage: 100 * 1024 * 1024, // 100MB
+      updateFrequency: 1000, // updates per second
+    },
+  };
+
+  private constructor() {}
 
   public static getInstance(): MonitoringService {
     if (!MonitoringService.instance) {
@@ -41,9 +60,16 @@ export class MonitoringService {
 
     // Simulate monitoring events
     this.monitoringInterval = window.setInterval(() => {
-      const analysis = this.analyzer.analyzeProps();
-      this.checkMetrics(analysis);
-      this.checkViolations(analysis);
+      this.notifyListeners({
+        type: 'metrics',
+        timestamp: Date.now(),
+        data: {
+          components: [],
+          unusedProps: [],
+          propPatterns: [],
+          frequentUpdates: []
+        } as PropAnalysisResult
+      });
     }, 1000);
   }
 
@@ -58,42 +84,107 @@ export class MonitoringService {
     this.isMonitoring = false;
   }
 
-  private checkMetrics(analysis: PropAnalysisResult): void {
-    this.notifyListeners({
-      type: 'metrics',
-      timestamp: Date.now(),
-      data: analysis
-    });
+  updateAnalysis(analysis: PropAnalysisResult) {
+    this.lastAnalysisResult = analysis;
+    this.collectMetrics();
   }
 
-  private checkViolations(analysis: PropAnalysisResult): void {
-    // Check for frequent updates
-    const highUpdateProps = analysis.frequentUpdates.filter(
-      update => update.updateCount > 100
-    );
+  private collectMetrics() {
+    if (!this.lastAnalysisResult) return;
 
-    if (highUpdateProps.length > 0) {
-      this.notifyListeners({
+    const timestamp = Date.now();
+    const memoryUsage = (performance as any).memory?.usedJSHeapSize || 0;
+
+    // Calculate metrics
+    const metrics: PerformanceMetrics = {
+      analysisTime: performance.now() - timestamp,
+      memoryUsage,
+      componentCount: this.lastAnalysisResult.components.length,
+      propCount: this.lastAnalysisResult.components.reduce(
+        (sum, comp) => sum + comp.props.length,
+        0
+      ),
+      updateFrequency: this.lastAnalysisResult.components.reduce(
+        (sum, comp) =>
+          sum +
+          comp.props.reduce(
+            (propSum, prop) => propSum + (prop.valueChanges || 0),
+            0
+          ),
+        0
+      ),
+    };
+
+    // Check for violations
+    this.checkViolations(metrics);
+
+    // Store metrics
+    const event: MonitoringEvent = {
+      timestamp,
+      type: 'metrics',
+      data: metrics,
+    };
+
+    this.metrics.push(event);
+    this.notifyListeners(event);
+  }
+
+  private checkViolations(metrics: PerformanceMetrics) {
+    const { alertThresholds } = this.defaultConfig;
+    const violations: string[] = [];
+
+    if (metrics.analysisTime > alertThresholds.analysisTime) {
+      violations.push(
+        `Analysis time (${metrics.analysisTime.toFixed(2)}ms) exceeds threshold (${
+          alertThresholds.analysisTime
+        }ms)`
+      );
+    }
+
+    if (metrics.memoryUsage > alertThresholds.memoryUsage) {
+      violations.push(
+        `Memory usage (${(metrics.memoryUsage / 1024 / 1024).toFixed(
+          2
+        )}MB) exceeds threshold (${(alertThresholds.memoryUsage / 1024 / 1024).toFixed(
+          2
+        )}MB)`
+      );
+    }
+
+    if (metrics.updateFrequency > alertThresholds.updateFrequency) {
+      violations.push(
+        `Update frequency (${metrics.updateFrequency} updates/s) exceeds threshold (${alertThresholds.updateFrequency} updates/s)`
+      );
+    }
+
+    if (violations.length > 0) {
+      const event: MonitoringEvent = {
+        timestamp: Date.now(),
         type: 'violation',
-        timestamp: Date.now(),
-        data: {
-          message: 'High frequency prop updates detected',
-          props: highUpdateProps
-        }
-      });
+        data: { metrics, violations },
+      };
+
+      this.notifyListeners(event);
+    }
+  }
+
+  private cleanupOldMetrics() {
+    const cutoff = Date.now() - this.defaultConfig.retentionPeriod;
+    this.metrics = this.metrics.filter(event => event.timestamp >= cutoff);
+  }
+
+  getMetrics(timeRange?: { start: number; end: number }): MonitoringEvent[] {
+    if (!timeRange) {
+      return [...this.metrics];
     }
 
-    // Check for unused props
-    if (analysis.unusedProps.length > 0) {
-      this.notifyListeners({
-        type: 'alert',
-        timestamp: Date.now(),
-        data: {
-          message: 'Unused props detected',
-          props: analysis.unusedProps
-        }
-      });
-    }
+    return this.metrics.filter(
+      event => event.timestamp >= timeRange.start && event.timestamp <= timeRange.end
+    );
+  }
+
+  getLatestMetrics(count: number = 1): MonitoringEvent[] {
+    return this.metrics.slice(-count);
   }
 
   private notifyListeners(event: MonitoringEvent): void {
