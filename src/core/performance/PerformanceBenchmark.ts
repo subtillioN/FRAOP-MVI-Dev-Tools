@@ -34,6 +34,29 @@ export class PerformanceBenchmark {
     this.metrics = [];
   }
 
+  async benchmark(analysis: PropAnalysisResult): Promise<PerformanceMetrics> {
+    const metrics = this.measureAnalysis(analysis);
+    this.metrics.push(metrics);
+    return metrics;
+  }
+
+  async compareBenchmarks(analyses: PropAnalysisResult[]): Promise<PerformanceMetrics[]> {
+    return Promise.all(analyses.map(analysis => this.benchmark(analysis)));
+  }
+
+  getResults(filter?: { minTime?: number; maxTime?: number }): PerformanceMetrics[] {
+    if (!filter) return this.metrics;
+    return this.metrics.filter(m => {
+      if (filter.minTime && m.analysisTime < filter.minTime) return false;
+      if (filter.maxTime && m.analysisTime > filter.maxTime) return false;
+      return true;
+    });
+  }
+
+  clearResults(): void {
+    this.metrics = [];
+  }
+
   measureAnalysis(analysis: PropAnalysisResult): PerformanceMetrics {
     const endTime = performance.now();
     const analysisTime = endTime - this.startTime;

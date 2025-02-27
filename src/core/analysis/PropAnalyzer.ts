@@ -47,7 +47,7 @@ export class PropAnalyzer {
     });
   }
 
-  getAnalysis(): PropAnalysisResult {
+  analyzeProps(): PropAnalysisResult {
     const components = Array.from(this.componentCache.entries()).map(([componentName, props]) => ({
       componentName,
       props
@@ -110,5 +110,22 @@ export class PropAnalyzer {
       });
     });
     return updates;
+  }
+
+  getComponentPropUsage(componentName: string): { componentName: string; props: PropUsage[] } | undefined {
+    const props = this.componentCache.get(componentName);
+    if (!props) return undefined;
+    return { componentName, props };
+  }
+
+  getRenderCount(componentName: string): number {
+    const props = this.componentCache.get(componentName);
+    if (!props) return 0;
+    return Math.max(...props.map(p => p.usageCount));
+  }
+
+  reset(): void {
+    this.componentCache.clear();
+    this.currentTime = Date.now();
   }
 } 
