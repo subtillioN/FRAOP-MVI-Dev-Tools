@@ -1,43 +1,75 @@
-// Option type for null safety
-export type Option<T> = Some<T> | typeof None;
+/**
+ * Represents an optional value that may or may not be present.
+ * This is a TypeScript implementation of the Option type pattern.
+ */
+export type Option<T> = Some<T> | None;
 
-export type Some<T> = {
-  readonly _tag: 'Some';
+/**
+ * Represents the presence of a value of type T.
+ */
+export interface Some<T> {
+  readonly type: 'Some';
   readonly value: T;
-};
+}
 
-export const Some = <T>(value: T): Some<T> => ({
-  _tag: 'Some',
-  value
-});
+/**
+ * Represents the absence of a value.
+ */
+export interface None {
+  readonly type: 'None';
+}
 
-export type NoneType = {
-  readonly _tag: 'None';
-};
+/**
+ * Creates a Some instance containing the given value.
+ */
+export function Some<T>(value: T): Some<T> {
+  return { type: 'Some', value };
+}
 
-export const None: NoneType = {
-  _tag: 'None'
-} as const;
+/**
+ * Creates a None instance.
+ */
+export const None = { type: 'None' as const };
 
-// Type guard functions
-export const isSome = <T>(option: Option<T>): option is Some<T> =>
-  option._tag === 'Some';
+/**
+ * Type guard to check if an Option is Some.
+ */
+export function isSome<T>(option: Option<T>): option is Some<T> {
+  return option.type === 'Some';
+}
 
-export const isNone = <T>(option: Option<T>): option is typeof None =>
-  option._tag === 'None';
+/**
+ * Type guard to check if an Option is None.
+ */
+export function isNone<T>(option: Option<T>): option is None {
+  return option.type === 'None';
+}
 
-// Safe type transformations
-export const map = <T, U>(option: Option<T>, f: (value: T) => U): Option<U> =>
-  isSome(option) ? Some(f(option.value)) : None;
+/**
+ * Maps a function over an Option value.
+ * If the Option is Some, applies the function to the contained value.
+ * If the Option is None, returns None.
+ */
+export function map<T, U>(option: Option<T>, f: (value: T) => U): Option<U> {
+  return isSome(option) ? Some(f(option.value)) : None;
+}
 
-export const flatMap = <T, U>(option: Option<T>, f: (value: T) => Option<U>): Option<U> =>
-  isSome(option) ? f(option.value) : None;
+/**
+ * Maps a function that returns an Option over an Option value.
+ * If the Option is Some, applies the function to the contained value.
+ * If the Option is None, returns None.
+ */
+export function flatMap<T, U>(option: Option<T>, f: (value: T) => Option<U>): Option<U> {
+  return isSome(option) ? f(option.value) : None;
+}
 
-export const getOrElse = <T>(option: Option<T>, defaultValue: T): T =>
-  isSome(option) ? option.value : defaultValue;
-
-export const fold = <T, U>(option: Option<T>, onNone: () => U, onSome: (value: T) => U): U =>
-  isSome(option) ? onSome(option.value) : onNone();
+/**
+ * Returns the value contained in an Option if it is Some,
+ * otherwise returns the provided default value.
+ */
+export function getOrElse<T>(option: Option<T>, defaultValue: T): T {
+  return isSome(option) ? option.value : defaultValue;
+}
 
 // Conversion utilities
 export const fromNullable = <T>(value: T | null | undefined): Option<T> =>

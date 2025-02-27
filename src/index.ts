@@ -2,6 +2,28 @@
 export { initDevTools } from './core/init';
 export { DevToolsConfig } from './types';
 
+// Base component exports
+export {
+  useBaseComponent,
+  useLifecycle,
+  useStream,
+  useComponentState,
+  useComponentProps,
+  type BaseComponentState,
+  type LifecycleEvents,
+  type Observer,
+  type Unsubscribe
+} from './core/base-component';
+
+// Stream exports
+export {
+  type StreamSource,
+  type StreamSink,
+  type StreamDispose,
+  type StreamFactory,
+  createSource
+} from './core/streams';
+
 // Service exports
 export * from './services/monitoring/MonitoringService';
 

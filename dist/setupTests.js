@@ -34,4 +34,36 @@ global.IntersectionObserver = class IntersectionObserver {
         return [];
     }
 };
+// Mock fs-extra
+jest.mock('fs-extra', () => ({
+    readFile: jest.fn(),
+    readdir: jest.fn(),
+    stat: jest.fn(),
+    writeFile: jest.fn(),
+    exists: jest.fn(),
+    mkdir: jest.fn(),
+    remove: jest.fn()
+}));
+// Mock chokidar
+jest.mock('chokidar', () => ({
+    watch: jest.fn(() => ({
+        on: jest.fn().mockReturnThis(),
+        close: jest.fn()
+    }))
+}));
+// Mock child_process
+jest.mock('child_process', () => ({
+    spawn: jest.fn(() => ({
+        on: jest.fn(),
+        kill: jest.fn()
+    })),
+    execSync: jest.fn()
+}));
+// Global test utilities
+global.console = {
+    ...console,
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn()
+};
 //# sourceMappingURL=setupTests.js.map

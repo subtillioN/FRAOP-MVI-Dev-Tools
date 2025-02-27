@@ -21,6 +21,8 @@
     "noUnusedParameters": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
+    "allowJs": true,
+    "checkJs": true,
     "allowSyntheticDefaultImports": true,
     "paths": {
       "@/*": ["*"]

@@ -105,3 +105,14 @@ export interface MonitoringEvent {
     propName?: string;
     value?: any;
 }
+export type { Option, Some, NoneType } from '../utils/option';
+export type { ValidationRule, ValidationResult } from './functional';
+export type { Pattern as FunctionalPattern } from './functional';
+export type { default as ValidateFunctional } from '../scripts/validate-functional';
+export type { default as ValidateModuleBoundaries } from '../scripts/validate-module-boundaries';
+export type { default as TtsdWatch } from '../scripts/ttsd-watch';
+export type ValidationType = 'functional' | 'modules' | 'all';
+export interface CLI {
+    validate: (type: ValidationType) => Promise<void>;
+    ttsdWatch: () => Promise<void>;
+}

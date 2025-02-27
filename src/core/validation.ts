@@ -1,4 +1,6 @@
 import { ArchitecturalAnalysis } from '../types';
+import { Option, Some, None, isSome } from '../utils/option';
+import { ValidationRule, ValidationResult } from './types';
 
 export class ArchitecturalValidator {
   private static instance: ArchitecturalValidator;
@@ -78,4 +80,74 @@ export class ArchitecturalValidator {
 
     return analysis;
   }
-} 
+}
+
+// Validation patterns
+export const patterns = {
+  classKeyword: {
+    pattern: /\bclass\b/,
+    message: 'Avoid using classes. Use functional components and pure functions instead.',
+  },
+  thisKeyword: {
+    pattern: /\bthis\b/,
+    message: 'Avoid using "this" keyword. Use pure functions and closures instead.',
+  },
+  mutableOperations: {
+    pattern: /\b(push|pop|shift|unshift|splice|sort|reverse)\b/,
+    message: 'Avoid mutating operations. Use immutable operations instead.',
+  },
+  instanceOf: {
+    pattern: /\binstanceof\b/,
+    message: 'Avoid instanceof operator. Use type predicates or pattern matching instead.',
+  },
+  voidFunction: {
+    pattern: /\bvoid\b/,
+    message: 'Functions should return values for better composition.',
+  },
+  nullLiteral: {
+    pattern: /\bnull\b/,
+    message: 'Avoid null. Use Option/Maybe types for better null safety.',
+  },
+  letDeclaration: {
+    pattern: /\blet\b/,
+    message: 'Use const instead of let for better immutability.',
+  },
+  forLoop: {
+    pattern: /\b(for|while)\b/,
+    message: 'Use map/reduce/filter/etc. instead of loops for better functional style.',
+  },
+  deleteOperator: {
+    pattern: /\bdelete\b/,
+    message: 'Avoid delete operator. Create new objects instead of mutating existing ones.',
+  },
+  assignment: {
+    pattern: /[^=!><]=[^=]/,
+    message: 'Avoid assignments. Use immutable data structures and transformations.',
+  },
+} as const;
+
+// Create validation rules
+export const rules: ValidationRule[] = Object.entries(patterns).map(([name, { pattern, message }]) => ({
+  name,
+  description: message,
+  validate: (code: string): Option<string[]> => {
+    const violations: string[] = [];
+    if (pattern.test(code)) {
+      violations.push(`Found ${name} violation: ${message}`);
+    }
+    return violations.length > 0 ? Some(violations) : None;
+  }
+}));
+
+// Validate code
+export const validateCode = (code: string): ValidationResult[] => {
+  return rules
+    .map(rule => {
+      const result = rule.validate(code);
+      return {
+        rule: rule.name,
+        violations: isSome(result) ? result.value : []
+      };
+    })
+    .filter(result => result.violations.length > 0);
+}; 

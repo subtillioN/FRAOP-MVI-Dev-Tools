@@ -129,4 +129,24 @@ export interface MonitoringEvent {
   componentName: string;
   propName?: string;
   value?: any;
+}
+
+// Core types
+export type { Option, Some, NoneType } from '../utils/option';
+
+// Validation types
+export type { ValidationRule, ValidationResult } from './functional';
+export type { Pattern as FunctionalPattern } from './functional';
+
+// Script types
+export type { default as ValidateFunctional } from '../scripts/validate-functional';
+export type { default as ValidateModuleBoundaries } from '../scripts/validate-module-boundaries';
+export type { default as TtsdWatch } from '../scripts/ttsd-watch';
+
+// CLI types
+export type ValidationType = 'functional' | 'modules' | 'all';
+
+export interface CLI {
+  validate: (type: ValidationType) => Promise<void>;
+  ttsdWatch: () => Promise<void>;
 } 
